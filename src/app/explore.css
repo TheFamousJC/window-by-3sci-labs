@@ -1,0 +1,95 @@
+#top-center-actions .window-tool-toggle {
+  width: auto;
+  min-width: 3.1rem;
+  padding: 0 0.5rem;
+  font:
+    600 0.72rem/1 Inter,
+    sans-serif;
+}
+.window-tool-panel {
+  position: fixed;
+  z-index: 173;
+  top: 4.25rem;
+  right: 1rem;
+  width: min(20rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 8rem);
+  overflow: auto;
+  padding: 1rem;
+  color: #e7f6ff;
+  background: #0b1521;
+  border: 1px solid #335068;
+  border-radius: 10px;
+  box-shadow: 0 8px 26px #0008;
+  font:
+    0.85rem/1.4 Inter,
+    sans-serif;
+}
+.window-tool-panel[hidden] {
+  display: none;
+}
+.window-tool-panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+.window-tool-panel p {
+  margin: 0.65rem 0 0;
+  color: #bdcbd6;
+}
+.window-tool-panel input[type='range'] {
+  display: block;
+  width: 100%;
+  accent-color: #63dbfc;
+}
+.window-tool-panel output {
+  display: block;
+  color: #8be5ff;
+  font-variant-numeric: tabular-nums;
+}
+.window-tool-actions {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-top: 0.7rem;
+}
+.window-tool-panel button,
+.window-tool-panel input:not([type='range']),
+.window-tool-panel select {
+  border: 1px solid #436780;
+  border-radius: 6px;
+  background: #152a3b;
+  color: #f4fbff;
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+}
+.window-tool-panel button {
+  cursor: pointer;
+}
+.window-tool-panel :focus-visible,
+#top-center-actions .window-tool-toggle:focus-visible {
+  outline: 2px solid #78e3ff;
+  outline-offset: 2px;
+}
+
+#window-sunlight {
+  left: 1rem;
+  right: auto;
+}
+.window-tool-panel [hidden] {
+  display: none;
+}
+.window-tool-panel select,
+.window-tool-panel input[type='text'] {
+  max-width: 100%;
+}
+.window-activity {
+  margin-top: 0.8rem;
+}
+.window-activity label,
+.window-tool-panel > label {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.window-inspection {
+  color: #a7e8f0;
+  margin: 0.7rem 0;
+}
