@@ -1,4 +1,4 @@
-# Window by 3Sci Labs
+# Window
 
 Window is a browser-based globe for exploring public geospatial feeds,
 including aircraft, satellites, earthquakes and weather. It is an independent

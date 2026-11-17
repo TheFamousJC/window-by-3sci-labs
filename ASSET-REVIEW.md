@@ -1,4 +1,4 @@
-# Bundled assets in Window by 3Sci Labs
+# Bundled assets in Window
 
 Window is based on God's Eye View by Bilawal Sidhu. The original LICENSE is
 preserved verbatim. The source code is MIT. The separate terms below apply to

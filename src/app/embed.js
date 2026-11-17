@@ -108,7 +108,7 @@ export function keepPanelRendering(
     (_scene, error) => {
       failed = true;
       console.error(
-        "[Window by 3Sci Labs panel] render error:",
+        "[Window panel] render error:",
         describeError(error),
       );
     },

@@ -1,6 +1,6 @@
 module.exports = {
   version: '3.6',
-  title: "Window by 3Sci Labs",
+  title: "Window",
   description: 'A live 3D intelligence console for planet Earth.',
   menu: async (kernel, info) => {
     const installed = await kernel.exists(__dirname, '.installed');
