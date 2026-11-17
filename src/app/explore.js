@@ -12,7 +12,7 @@ import {
   pointOnGlobe,
 } from './exploreGeometry.js';
 
-const activityNames = ["Where on Earth?","Postcards from Earth","Globe Tours","Scale Explorer"];
+const activityNames = ["Where on Earth?","Postcards from Earth","Globe Tours","Scale Explorer","Data Detective"];
 const categories = {
   flights: 'Observed',
   satellites: 'Calculated',
@@ -334,8 +334,103 @@ export function installExplore(viewer, dataManager) {
     return globePick(measure);
   }
 
+  function detective() {
+    const report = show(
+      '<p>Select a layer to inspect its source, status, and update age.</p>' +
+        '<label for="window-detective-layer">Layer</label><select id="window-detective-layer"></select>' +
+        '<div class="window-inspection"></div><div class="window-tool-actions">' +
+        action('challenge', 'Start challenge') +
+        '</div>' +
+        '<div class="window-tool-actions window-answers" hidden>' +
+        action('observed', 'Observed') +
+        action('forecast', 'Forecast') +
+        action('calculated', 'Calculated') +
+        '</div>',
+    );
+    const picker = content.querySelector('select');
+    const detail = content.querySelector('.window-inspection');
+    const answers = content.querySelector('.window-answers');
+    let answer;
+    let challengeLayer;
+    const layers = () =>
+      dataManager.getAll().filter((l) => l.showInTogglePanel || l.enabled);
+    function inspect() {
+      if (challengeLayer) return;
+      const layer = layers().find((l) => l.id === picker.value);
+      if (!layer) return;
+      const { source, feedState, ageLabel } = layerSnapshot(layer);
+      detail.textContent =
+        (categories[layer.id] || 'Reference or derived data') +
+        ' · ' +
+        (source || 'Source not listed') +
+        ' · ' +
+        (LAYER_FEED_STATE_LABELS[feedState] || 'OFF') +
+        ' · Last update: ' +
+        (ageLabel || 'unknown');
+    }
+    for (const layer of layers()) picker.add(new Option(layer.name, layer.id));
+    picker.value = 'earthquakes';
+    picker.addEventListener('change', () => {
+      challengeLayer = null;
+      answers.hidden = true;
+      inspect();
+    });
+    on('challenge', () => {
+      const ids = [
+        'earthquakes',
+        'satellites',
+        'wind',
+        'weather-radar',
+        'weather-lightning',
+        'flights',
+      ];
+      challengeLayer = ids[Math.floor(Math.random() * ids.length)];
+      const layer = layers().find((l) => l.id === challengeLayer);
+      answer = categories[challengeLayer].toLowerCase();
+      picker.value = challengeLayer;
+      detail.textContent = '';
+      answers.hidden = false;
+      report((layer?.name || challengeLayer) + ': what kind of data is this?');
+    });
+    for (const kind of ['observed', 'forecast', 'calculated'])
+      on(kind, () => {
+        if (!challengeLayer) return;
+        report(
+          kind === answer
+            ? 'Correct.'
+            : 'Answer: ' + categories[challengeLayer] + '.',
+        );
+        challengeLayer = null;
+        answers.hidden = true;
+        inspect();
+      });
+    const unpick = globePick((_, pixels) => {
+      const marker = viewer.scene.pick(pixels)?.id;
+      const layerId =
+        marker?.layerId ??
+        marker?.properties?.layerId?.getValue?.() ??
+        (typeof marker === 'string' && marker.startsWith('earthquake:')
+          ? 'earthquakes'
+          : null);
+      if (
+        typeof layerId === 'string' &&
+        [...picker.options].some((option) => option.value === layerId)
+      ) {
+        challengeLayer = null;
+        answers.hidden = true;
+        picker.value = layerId;
+        inspect();
+      }
+    });
+    inspect();
+    const timer = setInterval(inspect, 5000);
+    return () => {
+      clearInterval(timer);
+      unpick();
+    };
+  }
 
-  const activities = [game, postcard, tour, scale];
+  const activities = [game, postcard, tour, scale, detective];
   function mount() {
     cleanup();
     cleanup = activities[Number(menu.value)]?.() || (() => {});
