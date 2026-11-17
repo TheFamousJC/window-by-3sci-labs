@@ -454,3 +454,5 @@ On Render, public flights use the regional adsb.lol feed. OpenSky's
 [terms](https://opensky-network.org/about/terms-of-use) require a written
 license for a live service, even for anonymous REST API access. Once licensed,
 a host can explicitly enable OpenSky with `GEV_PUBLIC_OPENSKY_LICENSED=1`.
+
+Keyless regional flights use at most 450 requests per UTC day per instance, a 3-minute minimum upstream interval, and provider Retry-After cooldowns. Cached snapshots retain their observation times and expire after 10 minutes during outages. Shared hosting IP quotas can also be consumed by other services.

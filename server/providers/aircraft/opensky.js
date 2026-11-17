@@ -153,7 +153,39 @@ const OPENSKY_AUTH_MODE_SET = new Set(['basic', 'oauth', 'auto', 'anon']);
 const _adsbLolPointCache = new Map();
 /** Per-anchor single-flight map for concurrent regional fallback requests. */
 const _adsbLolPointInFlight = new Map();
-const ADSBLOL_POINT_CACHE_MS = 12000;
+const ADSBLOL_POINT_CACHE_MS = 180000;
+let adsbNextRequestAt = 0;
+let adsbCooldownUntil = 0;
+let adsbDailyRequests = 0;
+let adsbBudgetDay = '';
+let adsbBudgetLoaded = false;
+const aircraftBudgetPath = () =>
+  process.cwd() + '/.gev-cache/aircraft-budget.json';
+function loadAircraftBudget() {
+  if (adsbBudgetLoaded) return;
+  adsbBudgetLoaded = true;
+  try {
+    const saved = JSON.parse(fs.readFileSync(aircraftBudgetPath(), 'utf8'));
+    adsbCooldownUntil = Number(saved.cooldownUntil) || 0;
+    adsbNextRequestAt = Number(saved.nextRequestAt) || 0;
+    adsbDailyRequests = Number(saved.requests) || 0;
+    adsbBudgetDay = String(saved.day || '');
+  } catch {}
+}
+function saveAircraftBudget() {
+  try {
+    fs.mkdirSync(process.cwd() + '/.gev-cache', { recursive: true });
+    fs.writeFileSync(
+      aircraftBudgetPath(),
+      JSON.stringify({
+        cooldownUntil: adsbCooldownUntil,
+        nextRequestAt: adsbNextRequestAt,
+        requests: adsbDailyRequests,
+        day: adsbBudgetDay,
+      }),
+    );
+  } catch {}
+}
 const ADSBLOL_POINT_CACHE_MAX = 80;
 const ADSBLOL_POINT_RADIUS_NM = 250;
 const ADSBLOL_POINT_MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
@@ -372,6 +404,12 @@ async function fetchAdsbLolPointFallback(req) {
   const cacheKey = `${roundedLat.toFixed(2)},${roundedLon.toFixed(2)}`;
   const cached = _adsbLolPointCache.get(cacheKey);
   const now = Date.now();
+  loadAircraftBudget();
+  const day = new Date(now).toISOString().slice(0, 10);
+  if (day !== adsbBudgetDay) {
+    adsbBudgetDay = day;
+    adsbDailyRequests = 0;
+  }
   if (cached && now - cached.cachedAt < ADSBLOL_POINT_CACHE_MS) {
     return { ...cached, cacheStatus: 'HIT' };
   }
@@ -380,6 +418,14 @@ async function fetchAdsbLolPointFallback(req) {
     _adsbLolPointInFlight,
     cacheKey,
     async () => {
+      if (
+        Date.now() < Math.max(adsbNextRequestAt, adsbCooldownUntil) ||
+        adsbDailyRequests >= 450
+      )
+        return null;
+      adsbDailyRequests++;
+      adsbNextRequestAt = Date.now() + 180000;
+      saveAircraftBudget();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
       try {
@@ -393,7 +439,25 @@ async function fetchAdsbLolPointFallback(req) {
             signal: controller.signal,
           },
         );
-        if (!upstream.ok) throw new Error(`upstream HTTP ${upstream.status}`);
+        if (!upstream.ok) {
+          if (upstream.status === 429) {
+            const header = upstream.headers.get('retry-after');
+            const seconds = Number(header);
+            const retry =
+              header && Number.isFinite(seconds)
+                ? Date.now() + seconds * 1000
+                : Date.parse(header);
+            const midnight = new Date();
+            midnight.setUTCHours(24, 0, 0, 0);
+            adsbCooldownUntil = Math.max(
+              Date.now() + 180000,
+              Number.isFinite(retry) ? retry : midnight.getTime(),
+            );
+            saveAircraftBudget();
+          }
+          await upstream.body?.cancel();
+          throw new Error('upstream HTTP ' + upstream.status);
+        }
         const payload = await readResponseJsonCapped(
           upstream,
           ADSBLOL_POINT_MAX_RESPONSE_BYTES,
@@ -417,12 +481,18 @@ async function fetchAdsbLolPointFallback(req) {
   );
   try {
     const record = await request.promise;
-    return { ...record, cacheStatus: request.shared ? 'INFLIGHT' : 'MISS' };
+    return record
+      ? { ...record, cacheStatus: request.shared ? 'INFLIGHT' : 'MISS' }
+      : cached && Date.now() - cached.cachedAt < 600000
+        ? { ...cached, cacheStatus: 'STALE' }
+        : null;
   } catch (error) {
     if (!request.shared && error?.name !== 'AbortError') {
       console.warn('[adsb.lol Flights Fallback]', error?.message || error);
     }
-    return cached ? { ...cached, cacheStatus: 'STALE' } : null;
+    return cached && Date.now() - cached.cachedAt < 600000
+      ? { ...cached, cacheStatus: 'STALE' }
+      : null;
   }
 }
 
@@ -489,10 +559,38 @@ export function openSkyProxy() {
           process.env.OPENSKY_AUTH_MODE,
         );
         const now = Date.now();
-        if (process.env.RENDER === 'true' && process.env.GEV_PUBLIC_OPENSKY_LICENSED !== '1') {
-          if (await serveAdsbLolPointFallback(req, res, requestedMode, 'regional_public_host')) return;
-          res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-          res.end(JSON.stringify({ error: 'Regional flights unavailable. Global OpenSky requires a provider agreement.' }));
+        if (
+          process.env.RENDER === 'true' &&
+          process.env.GEV_PUBLIC_OPENSKY_LICENSED !== '1'
+        ) {
+          if (
+            await serveAdsbLolPointFallback(
+              req,
+              res,
+              requestedMode,
+              'regional_public_host',
+            )
+          )
+            return;
+          const retrySeconds = Math.max(
+            1,
+            Math.ceil(
+              (Math.max(adsbCooldownUntil, adsbNextRequestAt) - Date.now()) /
+                1000,
+            ),
+          );
+          res.setHeader('Retry-After', String(retrySeconds));
+          res.setHeader('X-Flight-Source', 'adsb.lol');
+          res.writeHead(429, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          });
+          res.end(
+            JSON.stringify({
+              error:
+                'Keyless aircraft provider is cooling down. Retrying after the provider request budget resets.',
+            }),
+          );
           return;
         }
         const inCooldown = now < _openskyCooldownUntil;

@@ -123,6 +123,14 @@ export async function readResponse(
 }
 
 export function httpError(response, source) {
+  const retryHeader = response.headers?.get?.('retry-after');
+  const seconds = Number(retryHeader);
+  const date = Date.parse(retryHeader);
+  const serverWait = retryHeader
+    ? Number.isFinite(seconds)
+      ? seconds * 1000
+      : date - Date.now()
+    : 0;
   const status = response.status;
   const code =
     status === 429
@@ -136,7 +144,10 @@ export function httpError(response, source) {
     {
       status,
       source,
-      retryAfterMs: code === 'limited' || code === 'denied' ? 45000 : 20000,
+      retryAfterMs: Math.max(
+        code === 'limited' || code === 'denied' ? 45000 : 20000,
+        Number.isFinite(serverWait) ? serverWait : 0,
+      ),
     },
   );
 }
