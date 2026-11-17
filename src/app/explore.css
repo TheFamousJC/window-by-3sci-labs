@@ -139,3 +139,18 @@ body.window-city-guessing #world-overlay-actions {
     visibility: hidden;
   }
 }
+
+.window-activity-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.window-activity-buttons button {
+  min-height: 2.35rem;
+  text-align: left;
+}
+.window-activity-buttons button[aria-pressed='true'] {
+  background: #214558;
+  border-color: #80e1fc;
+  color: #fff;
+}

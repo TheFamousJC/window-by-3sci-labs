@@ -65,11 +65,13 @@ export function installExplore(viewer, dataManager) {
   panel.setAttribute('aria-label', 'Explore activities');
   panel.innerHTML = `
     <h2>Explore</h2>
-    <label for="window-activity">Activity</label>
-    <select id="window-activity">${activityNames.map((name, index) => '<option value="' + index + '">' + name + '</option>').join('')}</select>
+    <div class="window-activity-buttons" role="group" aria-label="Choose an Explore activity">
+      ${activityNames.map((name, index) => '<button type="button" data-activity="' + index + '" aria-pressed="false">' + name + '</button>').join('')}
+    </div>
     <div class="window-activity"></div>`;
   document.body.append(panel);
-  const menu = panel.querySelector('select');
+  const choices = [...panel.querySelectorAll('[data-activity]')];
+  let activeActivity = null;
   const content = panel.querySelector('.window-activity');
   let cleanup = () => {};
   const storageKey = 'window-explore-tour-v1';
@@ -379,9 +381,13 @@ export function installExplore(viewer, dataManager) {
     scale,
     detective,
   ];
-  function mount(autoStart = false) {
+  function mount(index, autoStart = false) {
     cleanup();
-    cleanup = activities[Number(menu.value)]?.(autoStart) || (() => {});
+    activeActivity = index;
+    choices.forEach((choice, position) => {
+      choice.setAttribute('aria-pressed', String(position === index));
+    });
+    cleanup = activities[index]?.(autoStart) || (() => {});
   }
   function close() {
     cleanup();
@@ -390,12 +396,18 @@ export function installExplore(viewer, dataManager) {
     button.setAttribute('aria-expanded', 'false');
     content.replaceChildren();
   }
-  menu.addEventListener('change', () => mount());
+  choices.forEach((choice, index) => {
+    choice.addEventListener('click', () => {
+      if (activeActivity !== index || !content.firstElementChild) {
+        mount(index, index === 0);
+      }
+    });
+  });
   button.addEventListener('click', () => {
     if (!panel.hidden) return close();
     button.setAttribute('aria-expanded', 'true');
     panel.hidden = false;
-    mount();
+    if (activeActivity !== null) mount(activeActivity);
   });
   const gameButton = document.createElement('button');
   gameButton.type = 'button';
@@ -406,16 +418,15 @@ export function installExplore(viewer, dataManager) {
   gameButton.addEventListener('click', () => {
     if (
       !panel.hidden &&
-      menu.value === '0' &&
+      activeActivity === 0 &&
       content.querySelector('[data-city-round]:not([hidden])')
     ) {
       content.querySelector('[data-city-answer]')?.focus();
       return;
     }
-    menu.value = '0';
     button.setAttribute('aria-expanded', 'true');
     panel.hidden = false;
-    mount(true);
+    mount(0, true);
   });
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
