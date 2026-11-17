@@ -12,7 +12,7 @@ import {
   pointOnGlobe,
 } from './exploreGeometry.js';
 
-const activityNames = ["Where on Earth?","Postcards from Earth"];
+const activityNames = ["Where on Earth?","Postcards from Earth","Globe Tours"];
 const categories = {
   flights: 'Observed',
   satellites: 'Calculated',
@@ -226,10 +226,79 @@ export function installExplore(viewer, dataManager) {
     });
   }
 
+  function tour() {
+    const report = show(
+      '<label for="window-tour">Route</label><select id="window-tour">' +
+        '<option>Around the Equator</option><option>Volcanic Islands</option><option>My stops</option></select>' +
+        '<div class="window-tool-actions">' +
+        action('play', 'Play') +
+        action('stop', 'Stop') +
+        action('save', 'Add current view') +
+        action('clear', 'Clear my stops') +
+        '</div>',
+    );
+    const route = content.querySelector('select');
+    let timer;
+    let playing = false;
+    function stop() {
+      const wasPlaying = playing;
+      playing = false;
+      clearTimeout(timer);
+      if (wasPlaying) viewer.camera.cancelFlight();
+    }
+    on('play', () => {
+      stop();
+      const list =
+        route.value === 'My stops' ? [...customStops] : tours[route.value];
+      if (!list.length) return report('Add a current view to make a tour.');
+      playing = true;
+      let index = 0;
+      function advance() {
+        if (!playing) return;
+        if (index === list.length) {
+          playing = false;
+          report('Tour complete.');
+          return;
+        }
+        const place = list[index++];
+        report(place.name + ' · ' + index + '/' + list.length);
+        flyToPoint(viewer, place, {
+          complete: () => {
+            timer = setTimeout(advance, 1300);
+          },
+          cancel: stop,
+        });
+      }
+      advance();
+    });
+    on('stop', () => {
+      stop();
+      report('Tour stopped.');
+    });
+    on('save', () => {
+      const point = centerOfView(viewer);
+      if (!point) return report('Point the center of the view at Earth.');
+      if (customStops.length >= 15)
+        return report('My stops holds up to 15 locations.');
+      const name = 'Stop ' + (customStops.length + 1);
+      const height = Math.max(1500, viewer.camera.positionCartographic.height);
+      customStops.push({ ...point, name, height });
+      saveStops();
+      route.value = 'My stops';
+      report(name + ' added.');
+    });
+    on('clear', () => {
+      stop();
+      customStops = [];
+      saveStops();
+      report('My stops cleared.');
+    });
+    return stop;
+  }
 
 
 
-  const activities = [game, postcard];
+  const activities = [game, postcard, tour];
   function mount() {
     cleanup();
     cleanup = activities[Number(menu.value)]?.() || (() => {});
