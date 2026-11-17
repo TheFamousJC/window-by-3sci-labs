@@ -3,6 +3,23 @@ import { flyToPoint } from './exploreGeometry.js';
 export const ROUND_LENGTH = 10;
 const MAX_SCORE = ROUND_LENGTH * 15;
 const SCORE_KEY = 'window-city-game-score-v1';
+export const DIFFICULTIES = {
+  easy: { label: 'Easy', zoom: 1, shift: 0, heading: 0 },
+  medium: { label: 'Medium', zoom: 0.65, shift: 0.014, heading: 40 },
+  hard: { label: 'Hard', zoom: 0.4, shift: 0.025, heading: 115 },
+};
+export function cityView(place, difficulty) {
+  const rule = DIFFICULTIES[difficulty] || DIFFICULTIES.easy;
+  return {
+    ...place,
+    lat: place.lat + rule.shift,
+    lon: place.lon + rule.shift,
+    height: place.height * rule.zoom,
+  };
+}
+export function hintScore(points, cost) {
+  return Math.max(0, points - cost);
+}
 
 const cities = [
   ['Paris', 'France', 48.8584, 2.2945, 3200],
@@ -105,9 +122,13 @@ export function scoreCity(place, city, country) {
   return { cityPoints, countryPoints, points: cityPoints + countryPoints };
 }
 
-function savedScore() {
+function savedScore(difficulty) {
   try {
-    const value = JSON.parse(localStorage.getItem(SCORE_KEY) || 'null');
+    const value = JSON.parse(
+      localStorage.getItem(SCORE_KEY + ':' + difficulty) ||
+        (difficulty === 'easy' ? localStorage.getItem(SCORE_KEY) : null) ||
+        'null',
+    );
     return value &&
       [value.last, value.best].every(
         (n) => Number.isInteger(n) && n >= 0 && n <= MAX_SCORE,
@@ -125,6 +146,9 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       <div class="window-game-summary"><h3>Where on Earth?</h3><span data-city-progress>10 cities</span></div>
       <p data-city-rules>Name the city for 10 points and the country for 5.</p>
       <div data-city-score class="window-game-score">0 / ${MAX_SCORE}</div>
+      <label for="window-difficulty">Difficulty</label>
+      <select id="window-difficulty"><option value="easy">Easy · landmark</option><option value="medium">Medium · neighborhood</option><option value="hard">Hard · close streets</option></select>
+      <p>Hints reduce points earned for this city, down to zero.</p>
       <button type="button" data-city-start>Start round</button>
       <form data-city-round hidden>
         <label for="window-city-answer">City <span>10 points</span></label>
@@ -132,6 +156,12 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
         <label for="window-country-answer">Country <span>5 points</span></label>
         <input id="window-country-answer" type="text" maxlength="70" autocomplete="off" spellcheck="false">
         <div class="window-tool-actions"><button type="submit">Guess</button><button data-city-next type="button" hidden>Next city</button></div>
+        <div class="window-tool-actions">
+          <button type="button" data-hint="country">Country initial −2</button>
+          <button type="button" data-hint="city">City initial −3</button>
+        </div>
+        <p data-city-hints></p>
+        <p data-city-cost></p>
       </form>
       <div class="window-tool-actions"><button data-city-save type="button" hidden>Save score</button></div>
       <p data-city-feedback role="status" aria-live="polite"></p>
@@ -148,7 +178,16 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   const progress = el('[data-city-progress]');
   const scoreboard = el('[data-city-score]');
   const feedback = el('[data-city-feedback]');
-  let saved = savedScore();
+  const difficulty = el('#window-difficulty');
+  const hintButtons = [...content.querySelectorAll('[data-hint]')];
+  let costs = 0;
+  let hints = new Set();
+  let saved = savedScore(difficulty.value);
+  difficulty.addEventListener('change', () => {
+    saved = savedScore(difficulty.value);
+    savedLabel();
+  });
+
   const savedLabel = () => {
     el('[data-city-saved]').textContent = saved
       ? 'Last saved: ' + saved.last + ' · Best: ' + saved.best
@@ -156,6 +195,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   };
   savedLabel();
 
+  let roundDifficulty = 'easy';
   let deck = [];
   let index = 0;
   let total = 0;
@@ -169,6 +209,9 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     if (!active || token !== flight || phase !== 'flying') return;
     phase = 'guess';
     city.disabled = country.disabled = guess.disabled = false;
+    hintButtons.forEach((button) => {
+      button.disabled = hints.has(button.dataset.hint);
+    });
     feedback.textContent = 'Enter the city, the country, or both.';
     city.focus();
   }
@@ -179,12 +222,24 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     hideClues(true);
     form.hidden = false;
     form.reset();
+    costs = 0;
+    hints = new Set();
+    el('[data-city-hints]').textContent = '';
+    el('[data-city-cost]').textContent = 'Hints used: 0 points';
+    hintButtons.forEach((button) => {
+      button.disabled = true;
+    });
     city.disabled = country.disabled = guess.disabled = true;
     next.hidden = true;
     guess.hidden = false;
     feedback.textContent = 'Flying to the mystery city…';
     progress.textContent = 'City ' + (index + 1) + ' of ' + deck.length;
-    flyToPoint(viewer, deck[index], {
+    flyToPoint(viewer, cityView(deck[index], difficulty.value), {
+      orientation: {
+        heading: (DIFFICULTIES[difficulty.value].heading * Math.PI) / 180,
+        pitch: -Math.PI / 2,
+        roll: 0,
+      },
       complete: () => arrival(token),
       cancel: () => {
         if (!active || token !== flight || phase !== 'flying') return;
@@ -198,6 +253,8 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   }
 
   function begin() {
+    roundDifficulty = difficulty.value;
+    difficulty.disabled = true;
     deck = dealCities();
     index = 0;
     total = 0;
@@ -208,6 +265,24 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     showCity();
   }
 
+  hintButtons.forEach((button) =>
+    button.addEventListener('click', () => {
+      const kind = button.dataset.hint;
+      if (phase !== 'guess' || hints.has(kind)) return;
+      hints.add(kind);
+      costs += kind === 'country' ? 2 : 3;
+      button.disabled = true;
+      const place = deck[index];
+      el('[data-city-hints]').textContent = [...hints]
+        .map((hint) =>
+          hint === 'country'
+            ? 'Country starts with ' + place.country[0]
+            : 'City starts with ' + place.city[0],
+        )
+        .join(' · ');
+      el('[data-city-cost]').textContent = 'Hints used: ' + costs + ' points';
+    }),
+  );
   start.addEventListener('click', begin);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -219,7 +294,11 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     }
     const place = deck[index];
     const result = scoreCity(place, city.value, country.value);
-    total += result.points;
+    const earned = hintScore(result.points, costs);
+    total += earned;
+    hintButtons.forEach((button) => {
+      button.disabled = true;
+    });
     scoreboard.textContent = total + ' / ' + MAX_SCORE;
     city.disabled = country.disabled = true;
     guess.hidden = true;
@@ -230,9 +309,14 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       ' · City +' +
       result.cityPoints +
       ' · Country +' +
-      result.countryPoints;
+      result.countryPoints +
+      ' · Hints −' +
+      costs +
+      ' · Earned ' +
+      earned;
     if (index + 1 === deck.length) {
       phase = 'complete';
+      difficulty.disabled = false;
       form.hidden = true;
       progress.textContent = 'Round complete';
       save.hidden = false;
@@ -254,9 +338,16 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   });
   save.addEventListener('click', () => {
     if (phase !== 'complete' || save.disabled) return;
-    const candidate = { last: total, best: Math.max(total, saved?.best ?? 0) };
+    const candidate = {
+      last: total,
+      best: Math.max(total, savedScore(roundDifficulty)?.best ?? 0),
+    };
     try {
-      localStorage.setItem(SCORE_KEY, JSON.stringify(candidate));
+      localStorage.setItem(
+        SCORE_KEY + ':' + roundDifficulty,
+        JSON.stringify(candidate),
+      );
+      difficulty.value = roundDifficulty;
       saved = candidate;
       savedLabel();
       save.disabled = true;

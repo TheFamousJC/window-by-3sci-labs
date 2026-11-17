@@ -174,9 +174,7 @@ html[data-window-game-home='true'] #title-bar .subtitle {
 }
 html[data-window-game-home='true'] #command-dock,
 html[data-window-game-home='true'] #style-indicator,
-html[data-window-game-home='true'] #intel-hud,
-html[data-window-game-home='true'] #left-panel-stack,
-html[data-window-game-home='true'] #right-context-rail {
+html[data-window-game-home='true'] #intel-hud {
   display: none;
 }
 html[data-window-game-home='true'] #title-bar h1 {
