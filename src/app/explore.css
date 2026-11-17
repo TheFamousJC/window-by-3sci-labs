@@ -93,3 +93,49 @@
   color: #a7e8f0;
   margin: 0.7rem 0;
 }
+
+.window-city-game h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.window-game-summary {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.window-game-summary span,
+.window-city-game label span {
+  color: #a5c7d8;
+  font-size: 0.76rem;
+}
+.window-game-score {
+  color: #8be5ff;
+  font-size: 1.4rem;
+  font-variant-numeric: tabular-nums;
+  margin: 0.55rem 0;
+}
+.window-city-game label {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.55rem;
+}
+.window-city-game input {
+  width: 100%;
+}
+body.window-city-guessing #intel-hud,
+body.window-city-guessing #location-bar,
+body.window-city-guessing #world-overlay-root,
+body.window-city-guessing #world-overlay-actions {
+  visibility: hidden;
+}
+@media (max-width: 690px) {
+  #top-center-actions .window-game-toggle {
+    max-width: 4.4rem;
+    white-space: normal;
+    line-height: 1.05;
+  }
+  body.window-city-guessing #window-sunlight {
+    visibility: hidden;
+  }
+}

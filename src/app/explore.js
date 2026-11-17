@@ -1,3 +1,4 @@
+import { mountCityGame } from './city-game.js';
 import { Cartesian2 } from 'cesium';
 import {
   LAYER_FEED_STATE_LABELS,
@@ -7,12 +8,16 @@ import {
   centerOfView,
   compareDistance,
   flyToPoint,
-  guessScore,
-  places,
   pointOnGlobe,
 } from './exploreGeometry.js';
 
-const activityNames = ["Where on Earth?","Postcards from Earth","Globe Tours","Scale Explorer","Data Detective"];
+const activityNames = [
+  'Where on Earth?',
+  'Postcards from Earth',
+  'Globe Tours',
+  'Scale Explorer',
+  'Data Detective',
+];
 const categories = {
   flights: 'Observed',
   satellites: 'Calculated',
@@ -91,7 +96,6 @@ export function installExplore(viewer, dataManager) {
       /* session-only */
     }
   };
-  let lastPlace = -1;
 
   function show(markup) {
     content.innerHTML = markup + '<p role="status" aria-live="polite"></p>';
@@ -133,68 +137,6 @@ export function installExplore(viewer, dataManager) {
     return () => {
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointerup', up);
-    };
-  }
-
-  function game() {
-    const report = show(
-      '<p>Study a mystery location. Then return to the globe and click your guess.</p><div class="window-tool-actions">' +
-        action('round', 'New round') +
-        action('guess', 'Make a guess') +
-        action('center', 'Guess at view center') +
-        '</div>',
-    );
-    let answer;
-    let guessing = false;
-    let ready = false;
-    on('round', () => {
-      const jump = 1 + Math.floor(Math.random() * (places.length - 1));
-      lastPlace = (lastPlace + jump) % places.length;
-      answer = places[lastPlace];
-      guessing = false;
-      ready = false;
-      report('Study the landscape, then choose Make a guess.');
-      flyToPoint(viewer, answer, {
-        complete: () => {
-          ready = true;
-        },
-      });
-    });
-    on('guess', () => {
-      if (!answer || !ready)
-        return report('Start a round and wait for the camera to arrive.');
-      guessing = false;
-      flyToPoint(
-        viewer,
-        { lat: 10, lon: 12, height: 19000000 },
-        {
-          complete: () => {
-            guessing = true;
-            report('Click Earth to place your guess. Drag to rotate.');
-          },
-        },
-      );
-    });
-    function scorePoint(point) {
-      if (!guessing || !point || !answer) return;
-      guessing = false;
-      const { km, score } = guessScore(point, answer);
-      report(
-        answer.name +
-          ' · ' +
-          Math.round(km).toLocaleString() +
-          ' km away · ' +
-          score +
-          '/1000',
-      );
-      flyToPoint(viewer, answer);
-      answer = null;
-    }
-    on('center', () => scorePoint(centerOfView(viewer)));
-    const unpick = globePick(scorePoint);
-    return () => {
-      unpick();
-      viewer.camera.cancelFlight();
     };
   }
 
@@ -430,10 +372,16 @@ export function installExplore(viewer, dataManager) {
     };
   }
 
-  const activities = [game, postcard, tour, scale, detective];
-  function mount() {
+  const activities = [
+    (autoStart) => mountCityGame(content, viewer, { autoStart }),
+    postcard,
+    tour,
+    scale,
+    detective,
+  ];
+  function mount(autoStart = false) {
     cleanup();
-    cleanup = activities[Number(menu.value)]?.() || (() => {});
+    cleanup = activities[Number(menu.value)]?.(autoStart) || (() => {});
   }
   function close() {
     cleanup();
@@ -442,12 +390,32 @@ export function installExplore(viewer, dataManager) {
     button.setAttribute('aria-expanded', 'false');
     content.replaceChildren();
   }
-  menu.addEventListener('change', mount);
+  menu.addEventListener('change', () => mount());
   button.addEventListener('click', () => {
     if (!panel.hidden) return close();
     button.setAttribute('aria-expanded', 'true');
     panel.hidden = false;
     mount();
+  });
+  const gameButton = document.createElement('button');
+  gameButton.type = 'button';
+  gameButton.className = 'window-tool-toggle window-game-toggle';
+  gameButton.textContent = 'Where on Earth?';
+  gameButton.setAttribute('aria-controls', panel.id);
+  dock.append(gameButton);
+  gameButton.addEventListener('click', () => {
+    if (
+      !panel.hidden &&
+      menu.value === '0' &&
+      content.querySelector('[data-city-round]:not([hidden])')
+    ) {
+      content.querySelector('[data-city-answer]')?.focus();
+      return;
+    }
+    menu.value = '0';
+    button.setAttribute('aria-expanded', 'true');
+    panel.hidden = false;
+    mount(true);
   });
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -459,5 +427,6 @@ export function installExplore(viewer, dataManager) {
     close();
     panel.remove();
     button.remove();
+    gameButton.remove();
   };
 }
