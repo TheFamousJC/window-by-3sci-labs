@@ -9,10 +9,12 @@
 .window-tool-panel {
   position: fixed;
   z-index: 173;
-  top: 4.25rem;
+  top: max(4.25rem, var(--window-toolbar-bottom, 0px));
   right: 1rem;
   width: min(20rem, calc(100vw - 2rem));
-  max-height: calc(100dvh - 8rem);
+  max-height: calc(
+    100dvh - max(8rem, var(--window-toolbar-bottom, 0px) + 1rem)
+  );
   overflow: auto;
   padding: 1rem;
   color: #e7f6ff;
@@ -130,27 +132,39 @@ body.window-city-guessing #world-overlay-actions {
   visibility: hidden;
 }
 @media (max-width: 690px) {
-  #top-center-actions .window-game-toggle {
-    max-width: 4.4rem;
-    white-space: normal;
-    line-height: 1.05;
-  }
   body.window-city-guessing #window-sunlight {
     visibility: hidden;
   }
 }
 
-.window-activity-buttons {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+#top-center-actions:has(.window-activity-toggle) {
+  width: max-content;
+  max-width: calc(100vw - 19rem);
+  flex-wrap: wrap;
+  justify-content: center;
 }
-.window-activity-buttons button {
-  min-height: 2.35rem;
-  text-align: left;
+#top-center-actions .window-activity-toggle {
+  flex: 0 0 auto;
+  border-radius: 18px;
+  white-space: nowrap;
 }
-.window-activity-buttons button[aria-pressed='true'] {
-  background: #214558;
+#top-center-actions .window-activity-toggle[aria-expanded='true'] {
   border-color: #80e1fc;
   color: #fff;
+}
+@media (max-width: 900px) {
+  #top-center-actions:has(.window-activity-toggle) {
+    left: 7rem;
+    right: 0.75rem;
+    width: auto;
+    max-width: none;
+    transform: none;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  #top-center-actions .window-activity-toggle {
+    min-height: 30px;
+    height: auto;
+    padding: 0.35rem 0.45rem;
+  }
 }
