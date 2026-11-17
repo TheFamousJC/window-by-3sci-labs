@@ -4,7 +4,6 @@ import {
   Cartographic,
   Math as CesiumMath,
 } from 'cesium';
-import { greatCircleKm } from '../geoDistance.js';
 
 export function pointOnGlobe(viewer, screenPoint) {
   const { scene, camera } = viewer;
@@ -35,13 +34,4 @@ export function flyToPoint(viewer, { lon, lat, height = 25000 }, options = {}) {
     duration: 1.4,
     ...options,
   });
-}
-
-export function compareDistance(first, second) {
-  const km = greatCircleKm(first, second);
-  return {
-    km,
-    marathons: km / 42.195,
-    moonPercent: (km / 384400) * 100,
-  };
 }

@@ -168,3 +168,37 @@ body.window-city-guessing #world-overlay-actions {
     padding: 0.35rem 0.45rem;
   }
 }
+
+html[data-window-game-home='true'] #title-bar .subtitle {
+  display: none;
+}
+html[data-window-game-home='true'] #command-dock,
+html[data-window-game-home='true'] #style-indicator,
+html[data-window-game-home='true'] #intel-hud,
+html[data-window-game-home='true'] #left-panel-stack,
+html[data-window-game-home='true'] #right-context-rail {
+  display: none;
+}
+html[data-window-game-home='true'] #title-bar h1 {
+  font-size: 1.15rem;
+  letter-spacing: 0.08em;
+}
+html[data-window-game-home='true']
+  #top-center-actions:has(.window-activity-toggle) {
+  left: auto;
+  right: 1rem;
+  transform: none;
+  max-width: calc(100vw - 18rem);
+}
+@media (max-width: 690px) {
+  html[data-window-game-home='true'] #title-bar {
+    top: auto;
+    bottom: 1rem;
+    left: 1rem;
+  }
+  html[data-window-game-home='true']
+    #top-center-actions:has(.window-activity-toggle) {
+    left: 0.75rem;
+    max-width: none;
+  }
+}

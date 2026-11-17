@@ -4,20 +4,9 @@ import {
   LAYER_FEED_STATE_LABELS,
   layerSnapshot,
 } from '../data/layerSnapshot.js';
-import {
-  centerOfView,
-  compareDistance,
-  flyToPoint,
-  pointOnGlobe,
-} from './exploreGeometry.js';
+import { pointOnGlobe } from './exploreGeometry.js';
 
-const activityNames = [
-  'Where on Earth?',
-  'Postcards from Earth',
-  'Globe Tours',
-  'Scale Explorer',
-  'Data Detective',
-];
+const activityNames = ['Where on Earth?', 'Data Detective'];
 const categories = {
   flights: 'Observed',
   satellites: 'Calculated',
@@ -34,18 +23,6 @@ const categories = {
   traffic: 'Simulated vehicles',
   'fire-perimeters': 'Reported perimeters',
   'air-quality': 'Observed',
-};
-const tours = {
-  'Around the Equator': [
-    { name: 'Quito, Ecuador', lat: -0.18, lon: -78.47, height: 65000 },
-    { name: 'Kisangani, DR Congo', lat: 0.52, lon: 25.2, height: 65000 },
-    { name: 'Pontianak, Indonesia', lat: 0, lon: 109.34, height: 65000 },
-  ],
-  'Volcanic Islands': [
-    { name: 'Iceland', lat: 64.96, lon: -19.0, height: 510000 },
-    { name: 'Hawaiʻi', lat: 19.6, lon: -155.48, height: 245000 },
-    { name: 'Réunion', lat: -21.12, lon: 55.53, height: 160000 },
-  ],
 };
 
 export function installExplore(viewer, dataManager) {
@@ -82,31 +59,6 @@ export function installExplore(viewer, dataManager) {
   observer.observe(dock);
   placePanels();
   let cleanup = () => {};
-  const storageKey = 'window-explore-tour-v1';
-  let customStops = [];
-  try {
-    const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    if (Array.isArray(saved))
-      customStops = saved
-        .filter(
-          (p) =>
-            Number.isFinite(p?.lat) &&
-            Number.isFinite(p.lon) &&
-            Number.isFinite(p.height) &&
-            typeof p.name === 'string',
-        )
-        .slice(0, 15);
-  } catch {
-    /* storage may be disabled */
-  }
-  const saveStops = () => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(customStops));
-    } catch {
-      /* session-only */
-    }
-  };
-
   function show(markup) {
     content.innerHTML = markup + '<p role="status" aria-live="polite"></p>';
     const status = content.querySelector('[role="status"]');
@@ -148,142 +100,6 @@ export function installExplore(viewer, dataManager) {
       canvas.removeEventListener('pointerdown', down);
       canvas.removeEventListener('pointerup', up);
     };
-  }
-
-  function postcard() {
-    const report = show(
-      '<p>Pan to a location and export a globe illustration centered on the view.</p>' +
-        '<label for="window-postcard-caption">Caption</label><input id="window-postcard-caption" type="text" maxlength="70" placeholder="Postcard from Earth">' +
-        '<div class="window-tool-actions">' +
-        action('export', 'Download PNG') +
-        '</div>',
-    );
-    on('export', async (event) => {
-      const point = centerOfView(viewer);
-      if (!point) return report('Point the center of the view at Earth.');
-      const exportButton = event.currentTarget;
-      exportButton.disabled = true;
-      try {
-        const { downloadPostcard } = await import('./postcard.js');
-        await downloadPostcard(
-          point,
-          content.querySelector('input')?.value.trim() || '',
-        );
-        report('Postcard downloaded.');
-      } catch {
-        report('Could not create the postcard. Try again.');
-      } finally {
-        exportButton.disabled = false;
-      }
-    });
-  }
-
-  function tour() {
-    const report = show(
-      '<label for="window-tour">Route</label><select id="window-tour">' +
-        '<option>Around the Equator</option><option>Volcanic Islands</option><option>My stops</option></select>' +
-        '<div class="window-tool-actions">' +
-        action('play', 'Play') +
-        action('stop', 'Stop') +
-        action('save', 'Add current view') +
-        action('clear', 'Clear my stops') +
-        '</div>',
-    );
-    const route = content.querySelector('select');
-    let timer;
-    let playing = false;
-    function stop() {
-      const wasPlaying = playing;
-      playing = false;
-      clearTimeout(timer);
-      if (wasPlaying) viewer.camera.cancelFlight();
-    }
-    on('play', () => {
-      stop();
-      const list =
-        route.value === 'My stops' ? [...customStops] : tours[route.value];
-      if (!list.length) return report('Add a current view to make a tour.');
-      playing = true;
-      let index = 0;
-      function advance() {
-        if (!playing) return;
-        if (index === list.length) {
-          playing = false;
-          report('Tour complete.');
-          return;
-        }
-        const place = list[index++];
-        report(place.name + ' · ' + index + '/' + list.length);
-        flyToPoint(viewer, place, {
-          complete: () => {
-            timer = setTimeout(advance, 1300);
-          },
-          cancel: stop,
-        });
-      }
-      advance();
-    });
-    on('stop', () => {
-      stop();
-      report('Tour stopped.');
-    });
-    on('save', () => {
-      const point = centerOfView(viewer);
-      if (!point) return report('Point the center of the view at Earth.');
-      if (customStops.length >= 15)
-        return report('My stops holds up to 15 locations.');
-      const name = 'Stop ' + (customStops.length + 1);
-      const height = Math.max(1500, viewer.camera.positionCartographic.height);
-      customStops.push({ ...point, name, height });
-      saveStops();
-      route.value = 'My stops';
-      report(name + ' added.');
-    });
-    on('clear', () => {
-      stop();
-      customStops = [];
-      saveStops();
-      report('My stops cleared.');
-    });
-    return stop;
-  }
-
-  function scale() {
-    const report = show(
-      '<p>Click two places on Earth to compare the shortest surface distance.</p>' +
-        '<div class="window-tool-actions">' +
-        action('center', 'Use view center') +
-        action('reset', 'Reset points') +
-        '</div>',
-    );
-    let first;
-    let done = false;
-    on('reset', () => {
-      first = null;
-      done = false;
-      report('Click the first point.');
-    });
-    function measure(point) {
-      if (!point) return;
-      if (!first || done) {
-        first = point;
-        done = false;
-        report('First point set. Click the second point.');
-        return;
-      }
-      const { km, marathons, moonPercent } = compareDistance(first, point);
-      done = true;
-      report(
-        km.toLocaleString(undefined, { maximumFractionDigits: 1 }) +
-          ' km · ' +
-          marathons.toFixed(1) +
-          ' marathons · ' +
-          moonPercent.toFixed(2) +
-          '% of the average distance to the Moon',
-      );
-    }
-    on('center', () => measure(centerOfView(viewer)));
-    return globePick(measure);
   }
 
   function detective() {
@@ -384,9 +200,6 @@ export function installExplore(viewer, dataManager) {
 
   const activities = [
     (autoStart) => mountCityGame(content, viewer, { autoStart }),
-    postcard,
-    tour,
-    scale,
     detective,
   ];
   function close() {
@@ -418,6 +231,13 @@ export function installExplore(viewer, dataManager) {
       focus?.focus();
     }
   });
+  if (document.documentElement.dataset.windowGameHome === 'true') {
+    activeActivity = 0;
+    title.textContent = activityNames[0];
+    panel.hidden = false;
+    choices[0].setAttribute('aria-expanded', 'true');
+    cleanup = mountCityGame(content, viewer);
+  }
   return () => {
     close();
     observer.disconnect();
