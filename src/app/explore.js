@@ -12,7 +12,7 @@ import {
   pointOnGlobe,
 } from './exploreGeometry.js';
 
-const activityNames = ["Where on Earth?"];
+const activityNames = ["Where on Earth?","Postcards from Earth"];
 const categories = {
   flights: 'Observed',
   satellites: 'Calculated',
@@ -198,11 +198,38 @@ export function installExplore(viewer, dataManager) {
     };
   }
 
+  function postcard() {
+    const report = show(
+      '<p>Pan to a location and export a globe illustration centered on the view.</p>' +
+        '<label for="window-postcard-caption">Caption</label><input id="window-postcard-caption" type="text" maxlength="70" placeholder="Postcard from Earth">' +
+        '<div class="window-tool-actions">' +
+        action('export', 'Download PNG') +
+        '</div>',
+    );
+    on('export', async (event) => {
+      const point = centerOfView(viewer);
+      if (!point) return report('Point the center of the view at Earth.');
+      const exportButton = event.currentTarget;
+      exportButton.disabled = true;
+      try {
+        const { downloadPostcard } = await import('./postcard.js');
+        await downloadPostcard(
+          point,
+          content.querySelector('input')?.value.trim() || '',
+        );
+        report('Postcard downloaded.');
+      } catch {
+        report('Could not create the postcard. Try again.');
+      } finally {
+        exportButton.disabled = false;
+      }
+    });
+  }
 
 
 
 
-  const activities = [game];
+  const activities = [game, postcard];
   function mount() {
     cleanup();
     cleanup = activities[Number(menu.value)]?.() || (() => {});
