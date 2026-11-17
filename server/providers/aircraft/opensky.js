@@ -489,6 +489,12 @@ export function openSkyProxy() {
           process.env.OPENSKY_AUTH_MODE,
         );
         const now = Date.now();
+        if (process.env.RENDER === 'true' && process.env.GEV_PUBLIC_OPENSKY_LICENSED !== '1') {
+          if (await serveAdsbLolPointFallback(req, res, requestedMode, 'regional_public_host')) return;
+          res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          res.end(JSON.stringify({ error: 'Regional flights unavailable. Global OpenSky requires a provider agreement.' }));
+          return;
+        }
         const inCooldown = now < _openskyCooldownUntil;
         // Fresh-enough cache (adaptive TTL) OR any cache during a 429
         // cooldown: serve it without touching upstream. Stale-during-cooldown

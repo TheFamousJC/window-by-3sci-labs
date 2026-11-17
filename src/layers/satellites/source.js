@@ -13,6 +13,12 @@ export function createSatelliteSource({
   fetchImpl = (...args) => globalThis.fetch(...args),
 } = {}) {
   return {
+    async readFallback({ signal } = {}) {
+      const response = await fetchImpl('/api/satnogs', { signal });
+      const text = response.ok ? await response.text() : '';
+      signal?.throwIfAborted();
+      return { ok: response.ok, text, stale: response.headers?.get?.('x-tle-cache') === 'STALE-ERROR' };
+    },
     async readGroup(group, { signal } = {}) {
       if (!GROUPS.has(group)) throw new TypeError('Unknown satellite group');
       signal?.throwIfAborted();

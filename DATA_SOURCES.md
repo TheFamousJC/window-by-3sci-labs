@@ -442,3 +442,15 @@ NOAA density imagery with the raw GLM product.
 ## In-app attribution
 
 The required Google Maps / Cesium credit renders on the on-globe credit line (`#cesium-credits`, bottom-left) and must stay visible — including in clean-view and recording modes (the whole line, logo + "Google Maps" + the "Data attribution" link, stays on screen; only the GEV panels/HUD fade). The layer-specific credits (adsb.lol, adsbdb, TeleGeography, OSM datacenters/dams/roads, NASA FIRMS, CelesTrak, USGS, City of Austin, Fintraffic, GBFS, Radio Browser, OpenSky, AISStream) are registered into the expandable **"Data attribution"** popover on that credit line via `viewer.creditDisplay.addStaticCredit(new Cesium.Credit(html, /* showOnScreen */ false))` — see `src/data/dataCredits.js`. When you add a new data source, add its license and attribution to this file **and** append an entry to `DATA_CREDITS` in `src/data/dataCredits.js` so it surfaces in the app.
+
+## Public Render feed policy
+
+If the core CelesTrak groups cannot be loaded, Window can show a smaller
+[SatNOGS DB](https://db.satnogs.org/) catalog from Libre Space Foundation.
+Window filters it to recent orbital epochs and displays it as a fallback.
+The SatNOGS data retains its [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) license.
+
+On Render, public flights use the regional adsb.lol feed. OpenSky's
+[terms](https://opensky-network.org/about/terms-of-use) require a written
+license for a live service, even for anonymous REST API access. Once licensed,
+a host can explicitly enable OpenSky with `GEV_PUBLIC_OPENSKY_LICENSED=1`.

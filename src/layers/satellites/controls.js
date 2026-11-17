@@ -549,6 +549,7 @@ export function createControls({ state: layerState, services, parts, source }) {
       return {
         count: layerState._count,
         lastUpdate: layerState._lastUpdate,
+        source: layerState._usingSatnogs ? 'SatNOGS' : undefined,
         stale,
         status:
           layerState._lastError === 'CelesTrak unreachable'
@@ -557,7 +558,9 @@ export function createControls({ state: layerState, services, parts, source }) {
               ? 'degraded'
               : stale
                 ? 'stale'
-                : 'nominal',
+                : layerState._usingSatnogs
+                  ? 'fallback'
+                  : 'nominal',
         error: layerState._lastError,
       };
     },

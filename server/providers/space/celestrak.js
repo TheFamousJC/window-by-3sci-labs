@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { installSatnogsEndpoint } from './satnogs.js';
 import { promises as fsp } from 'node:fs';
 import { celestrakTleUrl } from '../../../src/data/spaceProviderRequests.js';
 import { providerCooldownMs } from './cooldown.js';
@@ -99,6 +100,7 @@ export function celestrakProxy() {
   }
 
   const installMiddleware = (server) => {
+    installSatnogsEndpoint(server.middlewares);
     server.middlewares.use('/api/celestrak', async (req, res) => {
       const group = String(req.url || '')
         .replace(/^\//, '')

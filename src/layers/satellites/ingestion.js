@@ -61,6 +61,20 @@ export function createIngestion({
           `[Data:Satellites] Loaded ${results.map((r) => `${r.tag}:${r.entries.length}`).join(' ')}`,
         );
 
+        let fallback = false;
+        if (results.every((r) => !r.ok) && source.readFallback) {
+          try {
+            const response = await source.readFallback({ signal: updateSignal });
+            const entries = response.ok ? parts.orbits.parseTLE(response.text) : [];
+            updateSignal.throwIfAborted();
+            if (entries.length) {
+              results.push({ tag: 'satnogs', entries, ok: true, stale: response.stale });
+              fallback = true;
+            }
+          } catch (error) {
+            if (updateSignal.aborted || error?.name === 'AbortError') throw error;
+          }
+        }
         // CelesTrak outage guard (H3): if EVERY group failed, bail BEFORE clearing.
         // Wiping the collection + catalog here would blank all 838 satellites while
         // the chip still read "just now". Keep the existing (stale) catalog on
@@ -79,7 +93,8 @@ export function createIngestion({
         // partial outage visible at the layer control instead of presenting the
         // reduced catalog as a fully healthy refresh.
         // i18n-ignore: English data; the panel shows it through FEED_ERROR_PATTERNS (ui/statusText.js)
-        layerState._lastError = failed.length
+        layerState._usingSatnogs = fallback;
+        layerState._lastError = fallback ? null : failed.length
           ? `${failed.length} CelesTrak group${failed.length === 1 ? '' : 's'} unavailable`
           : null;
 

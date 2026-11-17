@@ -137,7 +137,8 @@ export const DATA_CREDITS = [
     html:
       'Satellites (TLEs): CelesTrak ' +
       '(<a href="https://celestrak.org" target="_blank" rel="noopener">celestrak.org</a>), ' +
-      'Dr. T.S. Kelso',
+      'Dr. T.S. Kelso; fallback TLE catalog: <a href="https://db.satnogs.org/" target="_blank" rel="noopener">SatNOGS DB / Libre Space Foundation</a>, ' +
+      '<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> (filtered to recent orbital epochs)',
   },
   {
     key: 'launch-library-2',
