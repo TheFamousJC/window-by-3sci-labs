@@ -12,6 +12,7 @@ const renderDefaultView =
 // Use the normal share-link restore path. A visitor's explicit view takes precedence.
 if (window.location.hostname === renderHostname && !window.location.hash) {
   const url = new URL(window.location.href);
+  document.documentElement.dataset.windowSunlightDefault = 'true';
   url.hash = renderDefaultView;
   window.history.replaceState(window.history.state, '', url);
 }
@@ -23,7 +24,7 @@ const application = createStandaloneApplication({
 });
 
 application.start().catch((error) => {
-  console.error("Window initialization failed:", error);
+  console.error('Window initialization failed:', error);
   const loaderStatus = document.querySelector('#loading-screen .loader-status');
   loaderStatus.textContent = t('Error: {message}', {
     message: describeError(error),

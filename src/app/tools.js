@@ -34,7 +34,12 @@ export function createApplicationTools({
   defer,
 }) {
   const { viewer, tileset, mapStackController, operations } = scene;
-  defer(installSunlight(viewer));
+  defer(
+    installSunlight(viewer, {
+      startOn:
+        document.documentElement.dataset.windowSunlightDefault === 'true',
+    }),
+  );
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
   defer(installExplore(viewer, dataManager));

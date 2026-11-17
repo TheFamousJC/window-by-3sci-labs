@@ -16,7 +16,7 @@ export function sunlightDirection(date) {
   return Cartesian3.normalize(Cartesian3.negate(sun, sun), sun);
 }
 
-export function installSunlight(viewer) {
+export function installSunlight(viewer, { startOn = false } = {}) {
   const dock = document.getElementById('top-center-actions');
   if (!dock) return () => {};
   const button = document.createElement('button');
@@ -82,8 +82,7 @@ export function installSunlight(viewer) {
     button.setAttribute('aria-pressed', 'false');
     scene.requestRender();
   }
-  button.addEventListener('click', () => {
-    if (restore) return disable();
+  function enable() {
     const { light: previousLight } = scene;
     const { enableLighting, lightingFadeOutDistance, lightingFadeInDistance } =
       globe;
@@ -104,7 +103,12 @@ export function installSunlight(viewer) {
     button.setAttribute('aria-pressed', 'true');
     render();
     timer = setInterval(render, 30000);
+  }
+  button.addEventListener('click', () => {
+    if (restore) disable();
+    else enable();
   });
+  if (startOn) enable();
   slider.addEventListener('input', () => {
     isNow = false;
     render();
