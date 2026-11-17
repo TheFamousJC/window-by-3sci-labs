@@ -12,7 +12,7 @@ import {
   pointOnGlobe,
 } from './exploreGeometry.js';
 
-const activityNames = ["Where on Earth?","Postcards from Earth","Globe Tours"];
+const activityNames = ["Where on Earth?","Postcards from Earth","Globe Tours","Scale Explorer"];
 const categories = {
   flights: 'Observed',
   satellites: 'Calculated',
@@ -296,9 +296,46 @@ export function installExplore(viewer, dataManager) {
     return stop;
   }
 
+  function scale() {
+    const report = show(
+      '<p>Click two places on Earth to compare the shortest surface distance.</p>' +
+        '<div class="window-tool-actions">' +
+        action('center', 'Use view center') +
+        action('reset', 'Reset points') +
+        '</div>',
+    );
+    let first;
+    let done = false;
+    on('reset', () => {
+      first = null;
+      done = false;
+      report('Click the first point.');
+    });
+    function measure(point) {
+      if (!point) return;
+      if (!first || done) {
+        first = point;
+        done = false;
+        report('First point set. Click the second point.');
+        return;
+      }
+      const { km, marathons, moonPercent } = compareDistance(first, point);
+      done = true;
+      report(
+        km.toLocaleString(undefined, { maximumFractionDigits: 1 }) +
+          ' km · ' +
+          marathons.toFixed(1) +
+          ' marathons · ' +
+          moonPercent.toFixed(2) +
+          '% of the average distance to the Moon',
+      );
+    }
+    on('center', () => measure(centerOfView(viewer)));
+    return globePick(measure);
+  }
 
 
-  const activities = [game, postcard, tour];
+  const activities = [game, postcard, tour, scale];
   function mount() {
     cleanup();
     cleanup = activities[Number(menu.value)]?.() || (() => {});
