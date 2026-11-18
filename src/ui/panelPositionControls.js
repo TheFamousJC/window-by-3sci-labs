@@ -13,6 +13,13 @@ const RETIRED_PANEL_KEY_PREFIXES = [
   `godsEyeView.${PANEL_POSITION_STORAGE_VERSION}.panelPos.`,
   `godsEyeView.${PANEL_POSITION_STORAGE_VERSION}.panelFloatHintShown`,
 ];
+// Utility panels always begin compact; visitors can expand them when needed.
+export const START_MINIMIZED_PANELS = new Set([
+  'cctv-panel',
+  'street-level-panel',
+  'global-context-panel',
+]);
+
 export class PanelPositionControls {
   constructor({ syncPanelCollapseButton, showToast }) {
     this._syncPanelCollapseButton = syncPanelCollapseButton;
@@ -75,6 +82,7 @@ export class PanelPositionControls {
     // first-run mission card for the one first impression there is. A stored
     // choice still wins in both directions, so anyone who opens it keeps it.
     if (panelId === 'pp-toggles' && stored === null) collapsed = true;
+    if (START_MINIMIZED_PANELS.has(panelId)) collapsed = true;
     panelEl.classList.toggle('collapsed', collapsed);
     // Bodies that expand themselves on first appearance must not override a
     // choice the user (or a share link) already made.
