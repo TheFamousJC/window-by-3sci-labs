@@ -1,7 +1,7 @@
 import { UiLifetime } from './uiLifetime.js';
 import { t, msg } from '../i18n/index.js';
 import { displayPanelScroller } from './displayPanelScroll.js';
-import { PanelPositionControls, START_MINIMIZED_PANELS } from './panelPositionControls.js';
+import { PanelPositionControls } from './panelPositionControls.js';
 import { PanelLayoutController } from './panelLayoutController.js';
 import {
   bindPanelDisclosure,
@@ -414,9 +414,7 @@ export class PanelChrome {
         });
       }
       const nextCollapsed =
-        START_MINIMIZED_PANELS.has(spec.id)
-          ? true
-          : state.pinned && spec.pinnable ? false : state.collapsed;
+        state.pinned && spec.pinnable ? false : state.collapsed;
       this.setPanelCollapsed(spec.id, nextCollapsed, {
         restore: true,
         persist: false,
