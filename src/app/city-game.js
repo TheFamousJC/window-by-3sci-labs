@@ -1,3 +1,4 @@
+import { utcDay, dailyRandom, expeditionShare } from './dailyExpedition.js';
 import { settleStreak, streakMultiplier } from './cityStreak.js';
 import { flyToPoint } from './exploreGeometry.js';
 import { retainCountryPoints } from './countryZoomScore.js';
@@ -125,11 +126,11 @@ export function scoreCity(place, city, country, countryValue = 15) {
   return { cityPoints, countryPoints, points: cityPoints + countryPoints };
 }
 
-function savedScore(difficulty) {
+function savedScore(difficulty, namespace = SCORE_KEY) {
   try {
     const value = JSON.parse(
-      localStorage.getItem(SCORE_KEY + ':' + difficulty) ||
-        (difficulty === 'easy' ? localStorage.getItem(SCORE_KEY) : null) ||
+      localStorage.getItem(namespace + ':' + difficulty) ||
+        (namespace === SCORE_KEY && difficulty === 'easy' ? localStorage.getItem(SCORE_KEY) : null) ||
         'null',
     );
     return value &&
@@ -151,6 +152,9 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       <div data-city-score class="window-game-score">0 / ${MAX_SCORE}</div>
       <p data-city-streak>Streak: 0 · City multiplier ×1</p>
       <details><summary>Streak rules</summary><p>Two clean locations unlock ×1.5 city points; four unlock ×2. Get both answers right on the first attempt to grow your streak. Hints preserve it but pause growth and bonuses for that location. A wrong answer or Skip resets it. Country points are never multiplied or reduced by streaks.</p></details>
+      <label for="window-game-mode">Round</label>
+      <select id="window-game-mode"><option value="daily">Daily Expedition</option><option value="practice">Practice · random locations</option></select>
+      <p data-daily-info></p>
       <label for="window-difficulty">Difficulty</label>
       <select id="window-difficulty"><option value="easy">Easy · landmark</option><option value="medium">Medium · neighborhood</option><option value="hard">Hard · close streets</option></select>
       <p>Country points: below 20 km altitude = 15; 20–200 km = 12; 200–2,000 km = 8; above 2,000 km = 3. Zooming back in never restores points. Hints also cost points.</p>
@@ -170,9 +174,10 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
         <p data-city-cost></p>
       </form>
       <p>City guesses use the offline city list. A wrong guess gives distance and direction toward the mystery city. Retry values: 10, 7, 4, 1; hints are deducted separately. Unknown names and repeated guesses cost nothing.</p>
-      <div class="window-tool-actions"><button data-city-save type="button" hidden>Save score</button></div>
+      <div class="window-tool-actions"><button data-city-save type="button" hidden>Save score</button><button data-daily-share type="button" hidden>Copy daily result</button></div>
       <p data-city-feedback role="status" aria-live="polite"></p>
       <p data-city-saved></p>
+      <textarea data-share-fallback aria-label="Daily result to copy" readonly hidden></textarea>
     </section>`;
   const el = (selector) => content.querySelector(selector);
   const start = el('[data-city-start]');
@@ -186,6 +191,26 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   const scoreboard = el('[data-city-score]');
   const feedback = el('[data-city-feedback]');
   const difficulty = el('#window-difficulty');
+  const mode = el('#window-game-mode');
+  const share = el('[data-daily-share]');
+  let roundMode = 'daily';
+  let roundDay = utcDay();
+  let roundNamespace = SCORE_KEY;
+  let results = [];
+  function selectedNamespace() {
+    return mode.value === 'daily' ? SCORE_KEY + ':daily:' + utcDay() : SCORE_KEY;
+  }
+  function showMode() {
+    if (mode.value === 'daily') difficulty.value = 'easy';
+    difficulty.disabled = mode.value === 'daily';
+    if (mode.value === 'daily') difficulty.value = 'easy';
+    difficulty.disabled = mode.value === 'daily';
+    el('[data-daily-info]').textContent = mode.value === 'daily'
+      ? 'Daily Expedition · ' + utcDay() + ' UTC · Same 10 locations for everyone. Resets at midnight UTC. Easy difficulty; replays allowed.'
+      : 'Practice uses random locations and your chosen difficulty.';
+    saved = savedScore(difficulty.value, selectedNamespace());
+    savedLabel();
+  }
   const hintButtons = [...content.querySelectorAll('[data-hint]')];
   const skip = el('[data-answer-skip]');
   let streak = 0;
@@ -208,9 +233,9 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   }
   let costs = 0;
   let hints = new Set();
-  let saved = savedScore(difficulty.value);
+  let saved = savedScore(difficulty.value, selectedNamespace());
   difficulty.addEventListener('change', () => {
-    saved = savedScore(difficulty.value);
+    saved = savedScore(difficulty.value, selectedNamespace());
     savedLabel();
   });
 
@@ -220,6 +245,8 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       : '';
   };
   savedLabel();
+  mode.addEventListener('change', showMode);
+  showMode();
 
   let roundDifficulty = 'easy';
   let deck = [];
@@ -295,9 +322,19 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   }
 
   function begin() {
+    roundMode = mode.value;
+    roundDay = utcDay();
+    roundNamespace = roundMode === 'daily' ? SCORE_KEY + ':daily:' + roundDay : SCORE_KEY;
+    if (roundMode === 'daily') difficulty.value = 'easy';
     roundDifficulty = difficulty.value;
-    difficulty.disabled = true;
-    deck = dealCities();
+    mode.disabled = difficulty.disabled = true;
+    results = [];
+    share.hidden = true;
+    el('[data-share-fallback]').hidden = true;
+    el('[data-daily-info]').textContent = roundMode === 'daily'
+      ? 'Daily Expedition · ' + roundDay + ' UTC · Easy · Same 10 locations worldwide'
+      : 'Practice · Random locations';
+    deck = dealCities(roundMode === 'daily' ? dailyRandom(roundDay) : Math.random);
     index = 0;
     total = 0;
     streak = 0;
@@ -396,6 +433,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     streak = outcome.streak;
     showStreak();
     total += cityEarned + outcome.bonus;
+    results.push(countryBank + cityEarned + outcome.bonus);
     hintButtons.forEach((button) => { button.disabled = true; });
     scoreboard.textContent = total + ' / ' + MAX_SCORE;
     city.disabled = country.disabled = true;
@@ -405,7 +443,9 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       ' · Streak bonus +' + outcome.bonus + ' · Location total ' + (countryBank + cityEarned + outcome.bonus);
     if (index + 1 === deck.length) {
       phase = 'complete';
-      difficulty.disabled = false;
+      mode.disabled = false;
+      difficulty.disabled = mode.value === 'daily';
+      share.hidden = roundMode !== 'daily';
       form.hidden = true;
       progress.textContent = 'Round complete';
       save.hidden = false;
@@ -434,20 +474,38 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     if (phase !== 'complete' || save.disabled) return;
     const candidate = {
       last: total,
-      best: Math.max(total, savedScore(roundDifficulty)?.best ?? 0),
+      best: Math.max(total, savedScore(roundDifficulty, roundNamespace)?.best ?? 0),
     };
     try {
       localStorage.setItem(
-        SCORE_KEY + ':' + roundDifficulty,
+        roundNamespace + ':' + roundDifficulty,
         JSON.stringify(candidate),
       );
+      mode.value = roundMode;
       difficulty.value = roundDifficulty;
+      difficulty.disabled = roundMode === 'daily';
       saved = candidate;
       savedLabel();
       save.disabled = true;
       feedback.textContent = 'Score saved on this browser.';
     } catch {
       feedback.textContent = 'This browser could not save the score.';
+    }
+  });
+  share.addEventListener('click', async () => {
+    if (phase !== 'complete' || roundMode !== 'daily') return;
+    const text = expeditionShare({day: roundDay, total, results});
+    try {
+      await navigator.clipboard.writeText(text);
+      if (active) feedback.textContent = 'Spoiler-free daily result copied.';
+    } catch {
+      if (!active) return;
+      const fallback = el('[data-share-fallback]');
+      fallback.value = text;
+      fallback.hidden = false;
+      fallback.focus();
+      fallback.select();
+      feedback.textContent = 'Copy the selected result text to share.';
     }
   });
   const removeZoomListener = viewer.scene.preRender.addEventListener(trackZoom);
