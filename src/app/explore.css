@@ -200,3 +200,13 @@ html[data-window-game-home='true']
     max-width: none;
   }
 }
+
+/* Reserve the side rails for their own controls instead of covering them. */
+#window-explore {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+}
+body[data-mobile-sheet] #window-explore {
+  visibility: hidden;
+}
