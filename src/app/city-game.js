@@ -1,8 +1,9 @@
 import { flyToPoint } from './exploreGeometry.js';
+import { retainCountryPoints } from './countryZoomScore.js';
 
 export const ROUND_LENGTH = 10;
-const MAX_SCORE = ROUND_LENGTH * 15;
-const SCORE_KEY = 'window-city-game-score-v1';
+const MAX_SCORE = ROUND_LENGTH * 25;
+const SCORE_KEY = 'window-city-game-score-v2-zoom';
 export const DIFFICULTIES = {
   easy: { label: 'Easy', zoom: 1, shift: 0, heading: 0 },
   medium: { label: 'Medium', zoom: 0.65, shift: 0.014, heading: 40 },
@@ -107,7 +108,7 @@ function answerKey(input) {
     .replace(/[^\p{L}\p{N}]/gu, '');
 }
 
-export function scoreCity(place, city, country) {
+export function scoreCity(place, city, country, countryValue = 15) {
   const matches = (value, choices) => {
     const key = answerKey(value);
     return Boolean(key) && choices.some((choice) => answerKey(choice) === key);
@@ -117,7 +118,7 @@ export function scoreCity(place, city, country) {
     place.country,
     ...place.countryAliases,
   ])
-    ? 5
+    ? countryValue
     : 0;
   return { cityPoints, countryPoints, points: cityPoints + countryPoints };
 }
@@ -144,16 +145,16 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   content.innerHTML = `
     <section class="window-city-game" aria-label="Where on Earth?">
       <div class="window-game-summary"><h3>Where on Earth?</h3><span data-city-progress>10 cities</span></div>
-      <p data-city-rules>Name the city for 10 points and the country for 5.</p>
+      <p data-city-rules>City: 10 points. Country: up to 15. Zoom out for more context at a cost.</p>
       <div data-city-score class="window-game-score">0 / ${MAX_SCORE}</div>
       <label for="window-difficulty">Difficulty</label>
       <select id="window-difficulty"><option value="easy">Easy · landmark</option><option value="medium">Medium · neighborhood</option><option value="hard">Hard · close streets</option></select>
-      <p>Hints reduce points earned for this city, down to zero.</p>
+      <p>Country points: below 20 km altitude = 15; 20–200 km = 12; 200–2,000 km = 8; above 2,000 km = 3. Zooming back in never restores points. Hints also cost points.</p>
       <button type="button" data-city-start>Start round</button>
       <form data-city-round hidden>
         <label for="window-city-answer">City <span>10 points</span></label>
         <input id="window-city-answer" data-city-answer type="text" maxlength="70" autocomplete="off" spellcheck="false">
-        <label for="window-country-answer">Country <span>5 points</span></label>
+        <label for="window-country-answer">Country <span data-country-points>15 points</span></label>
         <input id="window-country-answer" type="text" maxlength="70" autocomplete="off" spellcheck="false">
         <div class="window-tool-actions"><button type="submit">Guess</button><button data-city-next type="button" hidden>Next city</button></div>
         <div class="window-tool-actions">
@@ -180,6 +181,15 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   const feedback = el('[data-city-feedback]');
   const difficulty = el('#window-difficulty');
   const hintButtons = [...content.querySelectorAll('[data-hint]')];
+  let countryValue = 15;
+  const countryPointsLabel = el('[data-country-points]');
+  function trackZoom() {
+    if (phase !== 'guess') return;
+    const remaining = retainCountryPoints(countryValue, viewer.camera.positionCartographic.height);
+    if (remaining === countryValue) return;
+    countryValue = remaining;
+    countryPointsLabel.textContent = countryValue + ' points · zoom cost applied';
+  }
   let costs = 0;
   let hints = new Set();
   let saved = savedScore(difficulty.value);
@@ -208,6 +218,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   function arrival(token) {
     if (!active || token !== flight || phase !== 'flying') return;
     phase = 'guess';
+    trackZoom();
     city.disabled = country.disabled = guess.disabled = false;
     hintButtons.forEach((button) => {
       button.disabled = hints.has(button.dataset.hint);
@@ -223,6 +234,8 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     form.hidden = false;
     form.reset();
     costs = 0;
+    countryValue = 15;
+    countryPointsLabel.textContent = '15 points';
     hints = new Set();
     el('[data-city-hints]').textContent = '';
     el('[data-city-cost]').textContent = 'Hints used: 0 points';
@@ -293,7 +306,8 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       return;
     }
     const place = deck[index];
-    const result = scoreCity(place, city.value, country.value);
+    trackZoom();
+    const result = scoreCity(place, city.value, country.value, countryValue);
     const earned = hintScore(result.points, costs);
     total += earned;
     hintButtons.forEach((button) => {
@@ -356,9 +370,11 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       feedback.textContent = 'This browser could not save the score.';
     }
   });
+  const removeZoomListener = viewer.scene.preRender.addEventListener(trackZoom);
   if (autoStart) begin();
   return () => {
     active = false;
+    removeZoomListener();
     if (phase === 'flying') viewer.camera.cancelFlight();
     hideClues(false);
   };
