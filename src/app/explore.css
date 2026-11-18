@@ -203,10 +203,16 @@ html[data-window-game-home='true']
 
 /* Reserve the side rails for their own controls instead of covering them. */
 #window-explore {
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
+  left: auto;
+  right: 1rem;
+  transform: none;
+  top: var(--window-game-top, 24rem);
+  max-height: max(6rem, calc(100dvh - var(--window-game-top, 24rem) - 1rem));
 }
 body[data-mobile-sheet] #window-explore {
-  visibility: hidden;
+  left: auto;
+  right: 1rem;
+  transform: none;
+  top: var(--window-game-top, 24rem);
+  max-height: max(6rem, calc(100dvh - var(--window-game-top, 24rem) - 1rem));
 }

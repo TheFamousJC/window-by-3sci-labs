@@ -24,14 +24,24 @@ export function installExplore(viewer, dataManager) {
   const title = panel.querySelector('h2');
   const content = panel.querySelector('.window-activity');
   let activeActivity = null;
+  const rail = document.getElementById('right-context-rail');
   function placePanels() {
     document.body.style.setProperty(
       '--window-toolbar-bottom',
       Math.ceil(dock.getBoundingClientRect().bottom) + 8 + 'px',
     );
+    const railBottom = rail ? Math.max(0, ...Array.from(rail.children)
+      .filter((child) => child.getClientRects().length && !child.hidden)
+      .map((child) => child.getBoundingClientRect().bottom)) : 0;
+    panel.style.setProperty('--window-game-top',
+      Math.ceil(Math.max(dock.getBoundingClientRect().bottom, railBottom) + 8) + 'px');
   }
   const observer = new ResizeObserver(placePanels);
   observer.observe(dock);
+  if (rail) observer.observe(rail);
+  const railObserver = new MutationObserver(placePanels);
+  if (rail) railObserver.observe(rail, { attributes: true, childList: true, subtree: true, attributeFilter: ['class', 'style', 'hidden'] });
+  window.addEventListener('resize', placePanels);
   placePanels();
   let cleanup = () => {};
   const activities = [
@@ -76,6 +86,8 @@ export function installExplore(viewer, dataManager) {
   return () => {
     close();
     observer.disconnect();
+    railObserver.disconnect();
+    window.removeEventListener('resize', placePanels);
     document.body.style.removeProperty('--window-toolbar-bottom');
     panel.remove();
     choices.forEach((choice) => choice.remove());
