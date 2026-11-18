@@ -3,7 +3,7 @@ import { retainCountryPoints } from './countryZoomScore.js';
 
 export const ROUND_LENGTH = 10;
 const MAX_SCORE = ROUND_LENGTH * 25;
-const SCORE_KEY = 'window-city-game-score-v2-zoom';
+const SCORE_KEY = 'window-city-game-score-v3-staged';
 export const DIFFICULTIES = {
   easy: { label: 'Easy', zoom: 1, shift: 0, heading: 0 },
   medium: { label: 'Medium', zoom: 0.65, shift: 0.014, heading: 40 },
@@ -145,18 +145,18 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   content.innerHTML = `
     <section class="window-city-game" aria-label="Where on Earth?">
       <div class="window-game-summary"><h3>Where on Earth?</h3><span data-city-progress>10 cities</span></div>
-      <p data-city-rules>City: 10 points. Country: up to 15. Zoom out for more context at a cost.</p>
+      <p data-city-rules>Lock in the country first (up to 15 points), then identify the city (10 points).</p>
       <div data-city-score class="window-game-score">0 / ${MAX_SCORE}</div>
       <label for="window-difficulty">Difficulty</label>
       <select id="window-difficulty"><option value="easy">Easy · landmark</option><option value="medium">Medium · neighborhood</option><option value="hard">Hard · close streets</option></select>
       <p>Country points: below 20 km altitude = 15; 20–200 km = 12; 200–2,000 km = 8; above 2,000 km = 3. Zooming back in never restores points. Hints also cost points.</p>
       <button type="button" data-city-start>Start round</button>
       <form data-city-round hidden>
-        <label for="window-city-answer">City <span>10 points</span></label>
-        <input id="window-city-answer" data-city-answer type="text" maxlength="70" autocomplete="off" spellcheck="false">
-        <label for="window-country-answer">Country <span data-country-points>15 points</span></label>
-        <input id="window-country-answer" type="text" maxlength="70" autocomplete="off" spellcheck="false">
-        <div class="window-tool-actions"><button type="submit">Guess</button><button data-city-next type="button" hidden>Next city</button></div>
+        <div data-city-stage hidden><label for="window-city-answer">City <span>10 points</span></label>
+        <input id="window-city-answer" data-city-answer type="text" maxlength="70" autocomplete="off" spellcheck="false"></div>
+        <div data-country-stage><label for="window-country-answer">Country <span data-country-points>15 points</span></label>
+        <input id="window-country-answer" type="text" maxlength="70" autocomplete="off" spellcheck="false"></div>
+        <div class="window-tool-actions"><button type="submit">Lock in country</button><button data-answer-skip type="button">Skip country</button><button data-city-next type="button" hidden>Next city</button></div>
         <div class="window-tool-actions">
           <button type="button" data-hint="country">Country initial −2</button>
           <button type="button" data-hint="city">City initial −3</button>
@@ -181,10 +181,12 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   const feedback = el('[data-city-feedback]');
   const difficulty = el('#window-difficulty');
   const hintButtons = [...content.querySelectorAll('[data-hint]')];
+  const skip = el('[data-answer-skip]');
+  let countryBank = 0;
   let countryValue = 15;
   const countryPointsLabel = el('[data-country-points]');
   function trackZoom() {
-    if (phase !== 'guess') return;
+    if (phase !== 'country') return;
     const remaining = retainCountryPoints(countryValue, viewer.camera.positionCartographic.height);
     if (remaining === countryValue) return;
     countryValue = remaining;
@@ -217,14 +219,15 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
 
   function arrival(token) {
     if (!active || token !== flight || phase !== 'flying') return;
-    phase = 'guess';
+    phase = 'country';
     trackZoom();
     city.disabled = country.disabled = guess.disabled = false;
     hintButtons.forEach((button) => {
-      button.disabled = hints.has(button.dataset.hint);
+      button.disabled = button.dataset.hint !== 'country';
     });
-    feedback.textContent = 'Enter the city, the country, or both.';
-    city.focus();
+    feedback.textContent = 'Stage 1 of 2: lock in your country before exploring further.';
+    country.focus();
+    skip.disabled = false;
   }
 
   function showCity() {
@@ -234,6 +237,13 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     form.hidden = false;
     form.reset();
     costs = 0;
+    countryBank = 0;
+    el('[data-city-stage]').hidden = true;
+    el('[data-country-stage]').hidden = false;
+    skip.hidden = false;
+    skip.disabled = true;
+    skip.textContent = 'Skip country';
+    guess.textContent = 'Lock in country';
     countryValue = 15;
     countryPointsLabel.textContent = '15 points';
     hints = new Set();
@@ -281,7 +291,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   hintButtons.forEach((button) =>
     button.addEventListener('click', () => {
       const kind = button.dataset.hint;
-      if (phase !== 'guess' || hints.has(kind)) return;
+      if (phase !== kind || hints.has(kind)) return;
       hints.add(kind);
       costs += kind === 'country' ? 2 : 3;
       button.disabled = true;
@@ -297,37 +307,45 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     }),
   );
   start.addEventListener('click', begin);
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    if (phase !== 'guess') return;
-    if (!city.value.trim() && !country.value.trim()) {
-      feedback.textContent = 'Enter at least one answer.';
-      city.focus();
+  function submitAnswer(skipped = false) {
+    if (phase !== 'country' && phase !== 'city') return;
+    const input = phase === 'country' ? country : city;
+    if (!skipped && !input.value.trim()) {
+      feedback.textContent = 'Enter an answer or choose Skip.';
+      input.focus();
       return;
     }
     const place = deck[index];
-    trackZoom();
-    const result = scoreCity(place, city.value, country.value, countryValue);
-    const earned = hintScore(result.points, costs);
-    total += earned;
-    hintButtons.forEach((button) => {
-      button.disabled = true;
-    });
+    if (phase === 'country') {
+      trackZoom();
+      const result = scoreCity(place, '', skipped ? '' : country.value, countryValue);
+      countryBank = hintScore(result.countryPoints, costs);
+      total += countryBank;
+      scoreboard.textContent = total + ' / ' + MAX_SCORE;
+      country.disabled = true;
+      countryPointsLabel.textContent = countryBank + ' points banked';
+      el('[data-country-stage]').hidden = true;
+      el('[data-city-stage]').hidden = false;
+      phase = 'city';
+      costs = 0;
+      el('[data-city-cost]').textContent = 'City hints used: 0 points';
+      guess.textContent = 'Lock in city';
+      skip.textContent = 'Skip city';
+      hintButtons.forEach((button) => { button.disabled = button.dataset.hint !== 'city'; });
+      feedback.textContent = 'Country locked · ' + countryBank + ' points banked. Now identify the city. Further zooming cannot reduce your banked points.';
+      city.focus();
+      return;
+    }
+    const result = scoreCity(place, skipped ? '' : city.value, '', 0);
+    const cityEarned = hintScore(result.cityPoints, costs);
+    total += cityEarned;
+    hintButtons.forEach((button) => { button.disabled = true; });
     scoreboard.textContent = total + ' / ' + MAX_SCORE;
     city.disabled = country.disabled = true;
-    guess.hidden = true;
-    feedback.textContent =
-      place.city +
-      ', ' +
-      place.country +
-      ' · City +' +
-      result.cityPoints +
-      ' · Country +' +
-      result.countryPoints +
-      ' · Hints −' +
-      costs +
-      ' · Earned ' +
-      earned;
+    guess.hidden = skip.hidden = true;
+    feedback.textContent = place.city + ', ' + place.country +
+      ' · Country banked +' + countryBank + ' · City +' + cityEarned +
+      ' · Location total ' + (countryBank + cityEarned);
     if (index + 1 === deck.length) {
       phase = 'complete';
       difficulty.disabled = false;
@@ -344,7 +362,12 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       next.hidden = false;
       next.focus();
     }
+  }
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    submitAnswer();
   });
+  skip.addEventListener('click', () => submitAnswer(true));
   next.addEventListener('click', () => {
     if (phase === 'review') index++;
     else if (phase !== 'retry') return;
