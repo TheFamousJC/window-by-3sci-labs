@@ -1,10 +1,11 @@
+import { settleStreak, streakMultiplier } from './cityStreak.js';
 import { flyToPoint } from './exploreGeometry.js';
 import { retainCountryPoints } from './countryZoomScore.js';
 import { cityAttemptPoints, cityGuessFeedback } from './cityGuessFeedback.js';
 
 export const ROUND_LENGTH = 10;
-const MAX_SCORE = ROUND_LENGTH * 25;
-const SCORE_KEY = 'window-city-game-score-v4-retries';
+const MAX_SCORE = ROUND_LENGTH * 25 + 70;
+const SCORE_KEY = 'window-city-game-score-v5-streaks';
 export const DIFFICULTIES = {
   easy: { label: 'Easy', zoom: 1, shift: 0, heading: 0 },
   medium: { label: 'Medium', zoom: 0.65, shift: 0.014, heading: 40 },
@@ -148,6 +149,8 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       <div class="window-game-summary"><h3>Where on Earth?</h3><span data-city-progress>10 cities</span></div>
       <p data-city-rules>Lock in the country first (up to 15 points), then identify the city (10 points).</p>
       <div data-city-score class="window-game-score">0 / ${MAX_SCORE}</div>
+      <p data-city-streak>Streak: 0 · City multiplier ×1</p>
+      <details><summary>Streak rules</summary><p>Two clean locations unlock ×1.5 city points; four unlock ×2. Get both answers right on the first attempt to grow your streak. Hints preserve it but pause growth and bonuses for that location. A wrong answer or Skip resets it. Country points are never multiplied or reduced by streaks.</p></details>
       <label for="window-difficulty">Difficulty</label>
       <select id="window-difficulty"><option value="easy">Easy · landmark</option><option value="medium">Medium · neighborhood</option><option value="hard">Hard · close streets</option></select>
       <p>Country points: below 20 km altitude = 15; 20–200 km = 12; 200–2,000 km = 8; above 2,000 km = 3. Zooming back in never restores points. Hints also cost points.</p>
@@ -185,6 +188,12 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   const difficulty = el('#window-difficulty');
   const hintButtons = [...content.querySelectorAll('[data-hint]')];
   const skip = el('[data-answer-skip]');
+  let streak = 0;
+  let countryCorrect = false;
+  function showStreak() {
+    el('[data-city-streak]').textContent = 'Streak: ' + streak + ' · City multiplier ×' + streakMultiplier(streak) +
+      (hints.size ? ' · Paused for this location (hint used)' : '');
+  }
   let wrongAttempts = 0;
   let attemptedCities = new Set();
   let countryBank = 0;
@@ -243,6 +252,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     form.reset();
     costs = 0;
     countryBank = 0;
+    countryCorrect = false;
     wrongAttempts = 0;
     attemptedCities = new Set();
     el('[data-city-points]').textContent = '10 points · 4 attempts';
@@ -255,6 +265,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     countryValue = 15;
     countryPointsLabel.textContent = '15 points';
     hints = new Set();
+    showStreak();
     el('[data-city-hints]').textContent = '';
     el('[data-city-cost]').textContent = 'Hints used: 0 points';
     hintButtons.forEach((button) => {
@@ -289,6 +300,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     deck = dealCities();
     index = 0;
     total = 0;
+    streak = 0;
     scoreboard.textContent = '0 / ' + MAX_SCORE;
     start.hidden = true;
     save.hidden = true;
@@ -301,6 +313,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       const kind = button.dataset.hint;
       if (phase !== kind || hints.has(kind)) return;
       hints.add(kind);
+      showStreak();
       costs += kind === 'country' ? 2 : 3;
       button.disabled = true;
       const place = deck[index];
@@ -327,6 +340,9 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     if (phase === 'country') {
       trackZoom();
       const result = scoreCity(place, '', skipped ? '' : country.value, countryValue);
+      countryCorrect = result.countryPoints > 0;
+      if (!countryCorrect) streak = 0;
+      showStreak();
       countryBank = hintScore(result.countryPoints, costs);
       total += countryBank;
       scoreboard.textContent = total + ' / ' + MAX_SCORE;
@@ -360,6 +376,8 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       }
       attemptedCities.add(match[0]);
       wrongAttempts++;
+      streak = 0;
+      showStreak();
       const remaining = cityAttemptPoints(wrongAttempts);
       el('[data-city-points]').textContent = remaining + ' points · ' + (4 - wrongAttempts) + ' attempts left';
       if (wrongAttempts < 4) {
@@ -371,14 +389,20 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       }
     }
     const cityEarned = result.cityPoints ? hintScore(cityAttemptPoints(wrongAttempts), costs) : 0;
-    total += cityEarned;
+    const outcome = settleStreak(streak, {
+      countryCorrect, cityCorrect: result.cityPoints > 0,
+      wrongAttempts, hinted: hints.size > 0, cityPoints: cityEarned,
+    });
+    streak = outcome.streak;
+    showStreak();
+    total += cityEarned + outcome.bonus;
     hintButtons.forEach((button) => { button.disabled = true; });
     scoreboard.textContent = total + ' / ' + MAX_SCORE;
     city.disabled = country.disabled = true;
     guess.hidden = skip.hidden = true;
     feedback.textContent = place.city + ', ' + place.country +
       ' · Country banked +' + countryBank + ' · City +' + cityEarned +
-      ' · Location total ' + (countryBank + cityEarned);
+      ' · Streak bonus +' + outcome.bonus + ' · Location total ' + (countryBank + cityEarned + outcome.bonus);
     if (index + 1 === deck.length) {
       phase = 'complete';
       difficulty.disabled = false;
