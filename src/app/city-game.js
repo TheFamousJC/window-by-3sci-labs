@@ -1,9 +1,10 @@
 import { flyToPoint } from './exploreGeometry.js';
 import { retainCountryPoints } from './countryZoomScore.js';
+import { cityAttemptPoints, cityGuessFeedback } from './cityGuessFeedback.js';
 
 export const ROUND_LENGTH = 10;
 const MAX_SCORE = ROUND_LENGTH * 25;
-const SCORE_KEY = 'window-city-game-score-v3-staged';
+const SCORE_KEY = 'window-city-game-score-v4-retries';
 export const DIFFICULTIES = {
   easy: { label: 'Easy', zoom: 1, shift: 0, heading: 0 },
   medium: { label: 'Medium', zoom: 0.65, shift: 0.014, heading: 40 },
@@ -100,7 +101,7 @@ export function dealCities(random = Math.random) {
   return deck.slice(0, ROUND_LENGTH);
 }
 
-function answerKey(input) {
+export function answerKey(input) {
   return input
     .normalize('NFKD')
     .replace(/\p{M}/gu, '')
@@ -151,9 +152,10 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       <select id="window-difficulty"><option value="easy">Easy · landmark</option><option value="medium">Medium · neighborhood</option><option value="hard">Hard · close streets</option></select>
       <p>Country points: below 20 km altitude = 15; 20–200 km = 12; 200–2,000 km = 8; above 2,000 km = 3. Zooming back in never restores points. Hints also cost points.</p>
       <button type="button" data-city-start>Start round</button>
+      <datalist id="window-offline-cities">${cities.map(([name]) => '<option value="' + name + '"></option>').join('')}</datalist>
       <form data-city-round hidden>
-        <div data-city-stage hidden><label for="window-city-answer">City <span>10 points</span></label>
-        <input id="window-city-answer" data-city-answer type="text" maxlength="70" autocomplete="off" spellcheck="false"></div>
+        <div data-city-stage hidden><label for="window-city-answer">City <span data-city-points>10 points · 4 attempts</span></label>
+        <input id="window-city-answer" data-city-answer list="window-offline-cities" type="text" maxlength="70" autocomplete="off" spellcheck="false"></div>
         <div data-country-stage><label for="window-country-answer">Country <span data-country-points>15 points</span></label>
         <input id="window-country-answer" type="text" maxlength="70" autocomplete="off" spellcheck="false"></div>
         <div class="window-tool-actions"><button type="submit">Lock in country</button><button data-answer-skip type="button">Skip country</button><button data-city-next type="button" hidden>Next city</button></div>
@@ -164,6 +166,7 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
         <p data-city-hints></p>
         <p data-city-cost></p>
       </form>
+      <p>City guesses use the offline city list. A wrong guess gives distance and direction toward the mystery city. Retry values: 10, 7, 4, 1; hints are deducted separately. Unknown names and repeated guesses cost nothing.</p>
       <div class="window-tool-actions"><button data-city-save type="button" hidden>Save score</button></div>
       <p data-city-feedback role="status" aria-live="polite"></p>
       <p data-city-saved></p>
@@ -182,6 +185,8 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
   const difficulty = el('#window-difficulty');
   const hintButtons = [...content.querySelectorAll('[data-hint]')];
   const skip = el('[data-answer-skip]');
+  let wrongAttempts = 0;
+  let attemptedCities = new Set();
   let countryBank = 0;
   let countryValue = 15;
   const countryPointsLabel = el('[data-country-points]');
@@ -238,6 +243,9 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
     form.reset();
     costs = 0;
     countryBank = 0;
+    wrongAttempts = 0;
+    attemptedCities = new Set();
+    el('[data-city-points]').textContent = '10 points · 4 attempts';
     el('[data-city-stage]').hidden = true;
     el('[data-country-stage]').hidden = false;
     skip.hidden = false;
@@ -337,7 +345,32 @@ export function mountCityGame(content, viewer, { autoStart = false } = {}) {
       return;
     }
     const result = scoreCity(place, skipped ? '' : city.value, '', 0);
-    const cityEarned = hintScore(result.cityPoints, costs);
+    if (!skipped && !result.cityPoints) {
+      const match = cities.find(([name, , , , , aliases = []]) =>
+        [name, ...aliases].some((value) => answerKey(value) === answerKey(city.value)));
+      if (!match) {
+        feedback.textContent = 'City not in the offline list. Choose a suggested city; no attempt charged.';
+        city.focus();
+        return;
+      }
+      if (attemptedCities.has(match[0])) {
+        feedback.textContent = 'You already tried ' + match[0] + '. Try another city; no attempt charged.';
+        city.focus();
+        return;
+      }
+      attemptedCities.add(match[0]);
+      wrongAttempts++;
+      const remaining = cityAttemptPoints(wrongAttempts);
+      el('[data-city-points]').textContent = remaining + ' points · ' + (4 - wrongAttempts) + ' attempts left';
+      if (wrongAttempts < 4) {
+        const clue = cityGuessFeedback({lat: match[2], lon: match[3]}, place);
+        feedback.textContent = clue.temperature + ' · About ' + Math.max(1, Math.round(clue.km / 10) * 10).toLocaleString() +
+          ' km ' + clue.direction + ' from ' + match[0] + '. ' + hintScore(remaining, costs) + ' city points available after hints. Country bank protected.';
+        city.select();
+        return;
+      }
+    }
+    const cityEarned = result.cityPoints ? hintScore(cityAttemptPoints(wrongAttempts), costs) : 0;
     total += cityEarned;
     hintButtons.forEach((button) => { button.disabled = true; });
     scoreboard.textContent = total + ' / ' + MAX_SCORE;
