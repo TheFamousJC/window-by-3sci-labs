@@ -1,3 +1,4 @@
+import { installHelp } from './help.js';
 import { installExplore } from './explore.js';
 import './explore.css';
 import { installSunlight } from './sunlight.js';
@@ -43,6 +44,7 @@ export function createApplicationTools({
   const { styleManager, weatherEffects, cockpitCloudEffects } = controls;
   const { dataManager } = data;
   defer(installExplore(viewer, dataManager));
+  defer(installHelp());
   const sceneDirector = new SceneDirector(viewer, styleManager, dataManager, {
     dataPacks: sceneDataPacks,
     isMapStackAvailable: (id) =>

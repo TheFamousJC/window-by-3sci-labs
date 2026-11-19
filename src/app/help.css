@@ -1,0 +1,230 @@
+#window-help {
+  width: min(48rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  padding: 0;
+  border: 1px solid #436780;
+  border-radius: 14px;
+  color: #e7f6ff;
+  background: #0b1521;
+  box-shadow: 0 12px 48px #000b;
+  font:
+    0.9rem/1.6 Inter,
+    sans-serif;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #436780 #0b1521;
+}
+#window-help::backdrop {
+  background: #000b;
+}
+#window-help [hidden] {
+  display: none !important;
+}
+.window-help-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 0.6rem;
+}
+.window-help-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+#window-help button {
+  border: 1px solid #436780;
+  border-radius: 7px;
+  padding: 0.5rem 0.7rem;
+  color: #e7f6ff;
+  background: #152a3b;
+  font: inherit;
+  cursor: pointer;
+}
+#window-help button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+#window-help :focus-visible {
+  outline: 2px solid #80e1fc;
+  outline-offset: 3px;
+}
+.window-help-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 1.25rem 0.8rem;
+  border-bottom: 1px solid #335068;
+}
+#window-help [aria-selected='true'] {
+  background: #22516b;
+  border-color: #80e1fc;
+}
+#window-help [role='tabpanel'] {
+  padding: 0.4rem 1.25rem 1.25rem;
+}
+#window-help h3 {
+  color: #9edfeb;
+  margin: 1rem 0 0.4rem;
+  font-size: 1rem;
+}
+#window-help h4 {
+  font-size: 1rem;
+  margin: 0.75rem 0 0.4rem;
+}
+#window-help p {
+  margin: 0.5rem 0 0.85rem;
+}
+#window-help li {
+  margin: 0.35rem 0;
+}
+#window-help ol {
+  padding-left: 1.3rem;
+}
+#window-help table {
+  border-collapse: collapse;
+  width: 100%;
+}
+#window-help th,
+#window-help td {
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #335068;
+  padding: 0.5rem;
+}
+#window-help caption {
+  text-align: left;
+  font-size: 0.8rem;
+  color: #a4bacb;
+  padding-bottom: 0.35rem;
+}
+#window-help details {
+  border-bottom: 1px solid #335068;
+  padding: 0.65rem 0;
+}
+#window-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.window-wizard-choices {
+  display: grid;
+  gap: 0.55rem;
+}
+.window-wizard-choices button {
+  text-align: left;
+}
+.window-help-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+@media (max-width: 600px) {
+  #window-help {
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    font-size: 0.85rem;
+  }
+  .window-help-header,
+  .window-help-tabs,
+  #window-help [role='tabpanel'] {
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+  .window-help-tabs {
+    gap: 0.3rem;
+  }
+  #window-help .window-help-tabs button {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}
+#window-help[open] {
+  display: flex;
+  flex-direction: column;
+}
+.window-help-header,
+.window-help-tabs {
+  flex: 0 0 auto;
+}
+#window-help [role='tabpanel'] {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.8rem 1.25rem 1.25rem;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #436780 #0b1521;
+}
+#window-help h3 {
+  margin: 1.1rem 0 0.35rem;
+  font-size: 1rem;
+}
+#window-help h3:first-child {
+  margin-top: 0;
+}
+#window-help p {
+  margin: 0.5rem 0;
+}
+#window-help li {
+  margin: 0.4rem 0;
+}
+#window-help table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6rem 0;
+}
+#window-help caption {
+  text-align: left;
+  font-size: 0.8rem;
+  color: #a8c1d4;
+}
+#window-help th,
+#window-help td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #335068;
+}
+#window-help details {
+  border-bottom: 1px solid #335068;
+  padding: 0.65rem 0;
+}
+#window-help summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.window-wizard-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+#window-help .window-wizard-choices button {
+  text-align: left;
+}
+.window-help-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+@media (max-width: 600px) {
+  #window-help {
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+    font-size: 0.85rem;
+  }
+  .window-help-header {
+    padding: 0.8rem 0.8rem 0.4rem;
+  }
+  .window-help-tabs {
+    padding: 0.5rem 0.8rem;
+    gap: 0.3rem;
+  }
+  #window-help [role='tabpanel'] {
+    padding: 0.8rem;
+  }
+}
+#window-help {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+}
