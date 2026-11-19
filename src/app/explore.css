@@ -392,3 +392,10 @@ body.window-game-layout.mobile-shell #corner-actions {
   bottom: 0.5rem;
   right: 0.5rem;
 }
+
+.window-answer-review {
+  white-space: pre-line;
+  border-left: 3px solid #80e1fc;
+  padding-left: 0.65rem;
+  font-size: 0.82rem;
+}

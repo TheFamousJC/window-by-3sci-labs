@@ -205,3 +205,84 @@ test('four wrong landmark guesses end a Hard location without losing banked coun
   assert.equal(f.el('[data-city-score]').textContent, '5 / 100');
   assert.equal(f.el('[data-city-next]').hidden, false);
 });
+
+test('wrong countries reveal the correct country on every difficulty before proceeding', (t) => {
+  const f = fixture(t);
+  for (const difficulty of ['easy', 'medium', 'hard']) {
+    f.change('#window-difficulty', difficulty);
+    f.click('[data-city-start]');
+    const place = f.target(difficulty);
+    f.submit('Definitely not a country');
+    assert.ok(
+      f
+        .el('[data-answer-review]')
+        .textContent.includes('Incorrect — Correct country: ' + place.country),
+    );
+    assert.equal(f.el('[data-city-score]').textContent, '0 / 100');
+    if (difficulty === 'easy') {
+      assert.ok(
+        f
+          .el('[data-city-feedback]')
+          .textContent.includes('Correct answers — Country: ' + place.country),
+      );
+      assert.equal(f.el('[data-city-next]').hidden, false);
+      f.click('[data-city-next]');
+      assert.equal(f.el('[data-answer-review]').hidden, true);
+    } else {
+      assert.ok(
+        f
+          .el('[data-city-feedback]')
+          .textContent.includes('Incorrect. Correct country: ' + place.country),
+      );
+      assert.ok(f.el('[data-answer-label]').textContent.includes('City'));
+    }
+  }
+});
+test('exhausted city and landmark attempts reveal answers and preserve the per-location review', (t) => {
+  const f = fixture(t);
+  f.change('#window-difficulty', 'hard');
+  f.click('[data-city-start]');
+  const place = f.target('hard');
+  f.submit(place.country);
+  for (const wrong of places.filter((p) => p.city !== place.city).slice(0, 4))
+    f.submit(wrong.city);
+  assert.ok(
+    f
+      .el('[data-answer-review]')
+      .textContent.includes('Incorrect — Correct city: ' + place.city),
+  );
+  assert.ok(
+    f
+      .el('[data-city-feedback]')
+      .textContent.includes('Correct city: ' + place.city),
+  );
+  for (const wrong of [
+    'Wrong landmark one',
+    'Wrong landmark two',
+    'Wrong landmark three',
+    'Wrong landmark four',
+  ])
+    f.submit(wrong);
+  assert.ok(
+    f
+      .el('[data-answer-review]')
+      .textContent.includes('Incorrect — Correct landmark: ' + place.landmark),
+  );
+  assert.ok(
+    f
+      .el('[data-city-feedback]')
+      .textContent.includes('Landmark: ' + place.landmark),
+  );
+  assert.equal(f.el('[data-city-score]').textContent, '2 / 100');
+});
+test('skipping an answer also reveals the correct answer', (t) => {
+  const f = fixture(t);
+  f.click('[data-city-start]');
+  const place = f.target('easy');
+  f.click('[data-answer-skip]');
+  assert.ok(
+    f
+      .el('[data-answer-review]')
+      .textContent.includes('Skipped — Correct country: ' + place.country),
+  );
+});

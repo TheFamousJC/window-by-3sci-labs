@@ -58,6 +58,7 @@ export function mountCityGame(content, viewer) {
         <div class="window-tool-actions"><button data-answer-hint type="button">Initial hint −1</button></div>
         <p data-answer-clue></p>
       </form>
+      <p data-answer-review class="window-answer-review" aria-live="polite" hidden></p>
       <div class="window-tool-actions"><button data-city-save type="button" hidden>Save score</button><button data-daily-share type="button" hidden>Copy daily result</button></div>
       <p data-city-feedback role="status" aria-live="polite"></p><p data-city-saved></p>
       <textarea data-share-fallback aria-label="Daily result to copy" readonly hidden></textarea>
@@ -211,6 +212,9 @@ export function mountCityGame(content, viewer) {
   function showLocation() {
     phase = 'flying';
     const token = ++flight;
+    reviewLines = [];
+    el('[data-answer-review]').textContent = '';
+    el('[data-answer-review]').hidden = true;
     stageIndex = 0;
     bank = 0;
     clean = true;
@@ -283,6 +287,23 @@ export function mountCityGame(content, viewer) {
     showLocation();
   }
   start.addEventListener('click', begin);
+  let reviewLines = [];
+  function recordAnswer(kind, correct, skipped, value, earned) {
+    const status = correct ? 'Correct' : skipped ? 'Skipped' : 'Incorrect';
+    reviewLines.push(
+      status +
+        ' — Correct ' +
+        kind +
+        ': ' +
+        value +
+        ' · +' +
+        earned +
+        ' points',
+    );
+    const review = el('[data-answer-review]');
+    review.textContent = reviewLines.join('\n');
+    review.hidden = false;
+  }
   function finishLocation() {
     phase = 'review';
     streak = clean ? (hintUsed ? streak : streak + 1) : 0;
@@ -293,9 +314,10 @@ export function mountCityGame(content, viewer) {
     zoomLabel();
     const place = deck[index];
     feedback.textContent =
+      'Correct answers — Country: ' +
       place.country +
-      (roundDifficulty !== 'easy' ? ' · ' + place.city : '') +
-      (roundDifficulty === 'hard' ? ' · ' + place.landmark : '') +
+      (roundDifficulty !== 'easy' ? ' · City: ' + place.city : '') +
+      (roundDifficulty === 'hard' ? ' · Landmark: ' + place.landmark : '') +
       ' · Location +' +
       bank +
       ' / 10';
@@ -362,6 +384,9 @@ export function mountCityGame(content, viewer) {
       if (attempts < 4) {
         const clue = match ? cityGuessFeedback(match, place) : null;
         feedback.textContent =
+          'Incorrect ' +
+          kind +
+          '. ' +
           (clue
             ? clue.temperature +
               ' · About ' +
@@ -386,6 +411,7 @@ export function mountCityGame(content, viewer) {
       streak = 0;
       el('[data-city-streak]').textContent = 'Clean-location streak: 0';
     }
+    recordAnswer(kind, correct, skipped, place[kind], earned);
     bank += earned;
     total += earned;
     scoreboard.textContent = total + ' / 100';
@@ -393,9 +419,12 @@ export function mountCityGame(content, viewer) {
       stageIndex++;
       stageControls();
       feedback.textContent =
-        kind[0].toUpperCase() +
-        kind.slice(1) +
-        ' locked · +' +
+        (correct ? 'Correct. ' : skipped ? 'Skipped. ' : 'Incorrect. ') +
+        'Correct ' +
+        kind +
+        ': ' +
+        place[kind] +
+        ' · +' +
         earned +
         ' points banked. Now name the ' +
         stage() +
