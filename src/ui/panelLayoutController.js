@@ -295,6 +295,10 @@ export class PanelLayoutController {
   }
 
   _syncRightPanelAdaptiveLayout() {
+    if (document.body.classList.contains('window-game-layout')) {
+      syncRadioPanelPlacement(document);
+      return;
+    }
     if (this.destroyed) return;
     syncRadioPanelPlacement(document);
     layoutRightPanelRail({
@@ -430,6 +434,7 @@ export class PanelLayoutController {
   }
 
   _syncLeftPanelAdaptiveLayout() {
+    if (document.body.classList.contains('window-game-layout')) return;
     if (this.destroyed) return;
     layoutLeftPanelRail({
       stack: this._leftPanelStack,

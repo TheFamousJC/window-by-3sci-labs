@@ -15,6 +15,7 @@ const RETIRED_PANEL_KEY_PREFIXES = [
 ];
 // Utility panels always begin compact; visitors can expand them when needed.
 export const START_MINIMIZED_PANELS = new Set([
+  'data-panel',
   'cctv-panel',
   'street-level-panel',
   'global-context-panel',
