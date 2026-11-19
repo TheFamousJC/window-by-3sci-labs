@@ -20,13 +20,22 @@ test('level stages and totals match the requested rules', () => {
     [0, 1, 2, 3, 4, 5].map(easyCountryPoints),
     [10, 8, 6, 4, 2, 2],
   );
-  for (const difficulty of ['medium', 'hard'])
+  for (const difficulty of ['hard'])
     for (const stage of DIFFICULTIES[difficulty].stages)
       assert.equal(
         answerPoints(difficulty, stage, 0),
         answerPoints(difficulty, stage, 4),
       );
 });
+test('Medium keeps country points and applies the four city deductions', () => {
+  assert.deepEqual(
+    [0, 1, 2, 3, 4].map((z) => answerPoints('medium', 'city', z)),
+    [8, 6, 4, 2, 0],
+  );
+  assert.equal(answerPoints('medium', 'country', 4), 2);
+  assert.equal(answerPoints('medium', 'city', 4, true), 0);
+});
+
 test('every location has landmark answers and daily deals contain ten unique places', () => {
   assert.ok(
     places.every((p) => p.landmark && Array.isArray(p.landmarkAliases)),

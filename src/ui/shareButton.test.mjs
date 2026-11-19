@@ -158,3 +158,83 @@ test('a host hook that answers without a promise, or throws, still gets a toast'
     assert.deepEqual(toasts, [toast]);
   }
 });
+
+test('clean address keeps defaults internal and only Share serializes the current view', (t) => {
+  const prior = { window: globalThis.window, history: globalThis.history };
+  t.after(() => Object.assign(globalThis, prior));
+  const location = new URL('https://gev.example/?lang=en');
+  globalThis.window = { location };
+  let writes = 0;
+  globalThis.history = {
+    replaceState(_a, _b, href) {
+      writes++;
+      location.href = href;
+    },
+  };
+  let changed;
+  const viewer = {
+    camera: {
+      changed: {
+        addEventListener(fn) {
+          changed = fn;
+          return () => {};
+        },
+      },
+      positionCartographic: { latitude: 0, longitude: 0, height: 600 },
+      heading: 0,
+      pitch: -1,
+      roll: 0,
+    },
+  };
+  const manager = new ShareLinkManager(viewer, {
+    cleanAddressBar: true,
+    initialShareHash:
+      'v=2&lat=30.2672&lon=-97.7431&alt=600&map=esri-imagery&l=f',
+  });
+  const state = manager.parseInitialHash();
+  assert.equal(state.lat, 30.2672);
+  assert.equal(state.mapStack, 'esri-imagery');
+  manager.completeInitialRestore(state.restoreToken);
+  changed();
+  manager.onStyleChange('surveillance');
+  assert.equal(location.href, 'https://gev.example/?lang=en');
+  assert.equal(writes, 0);
+  const link = manager.buildLink({ nowMs: 7000000 });
+  assert.match(link, SHARE_LINK);
+  assert.equal(sharedState(link).style, 'surveillance');
+  assert.equal(location.href, 'https://gev.example/?lang=en');
+  location.href = link;
+  const incoming = new ShareLinkManager(viewer, { cleanAddressBar: true });
+  assert.ok(incoming.parseInitialHash());
+  assert.equal(location.href, 'https://gev.example/');
+  manager.destroy();
+  incoming.destroy();
+});
+test('clean address accepts an old detailed hash before removing it', (t) => {
+  const prior = { window: globalThis.window, history: globalThis.history };
+  t.after(() => Object.assign(globalThis, prior));
+  const location = new URL(
+    'https://gev.example/#v=2&lat=48.8584&lon=2.2945&alt=1000',
+  );
+  globalThis.window = { location };
+  globalThis.history = {
+    replaceState(_a, _b, url) {
+      location.href = url;
+    },
+  };
+  const manager = new ShareLinkManager(
+    {
+      camera: {
+        changed: {
+          addEventListener() {
+            return () => {};
+          },
+        },
+      },
+    },
+    { cleanAddressBar: true },
+  );
+  assert.equal(manager.parseInitialHash().lat, 48.8584);
+  assert.equal(location.href, 'https://gev.example/');
+  manager.destroy();
+});

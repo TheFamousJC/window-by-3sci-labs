@@ -33,7 +33,9 @@ export function answerPoints(difficulty, stage, zoomOuts, hinted = false) {
   const base =
     difficulty === 'easy'
       ? easyCountryPoints(zoomOuts)
-      : DIFFICULTIES[difficulty].points[stage];
+      : difficulty === 'medium' && stage === 'city'
+        ? Math.max(0, 8 - 2 * Math.min(4, Math.max(0, zoomOuts)))
+        : DIFFICULTIES[difficulty].points[stage];
   return Math.max(0, base - (hinted ? 1 : 0));
 }
 export function answerKey(input) {

@@ -1,0 +1,48 @@
+#window-share-view {
+  width: min(480px, calc(100vw - 40px));
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid #3c615b;
+  border-radius: 12px;
+  background: #0b171a;
+  color: #e4f3ee;
+  font:
+    14px/1.5 system-ui,
+    sans-serif;
+}
+#window-share-view::backdrop {
+  background: #0009;
+}
+#window-share-view h2 {
+  margin: 0 0 12px;
+}
+#window-share-view label {
+  display: block;
+  margin-bottom: 6px;
+}
+#window-share-view input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  color: #e4f3ee;
+  background: #14262a;
+  border: 1px solid #54766e;
+  border-radius: 5px;
+}
+#window-share-view div {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+#window-share-view button {
+  padding: 9px 18px;
+  background: #173b36;
+  color: #effff8;
+  border: 1px solid #5b897a;
+  border-radius: 5px;
+  cursor: pointer;
+}
+#window-share-view :focus-visible {
+  outline: 2px solid #a3ffd6;
+  outline-offset: 3px;
+}

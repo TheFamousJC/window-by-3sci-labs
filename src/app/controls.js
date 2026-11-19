@@ -1,3 +1,4 @@
+import { showShareViewDialog } from './shareViewDialog.js';
 import { catalogControlServices } from './catalog.js';
 import { StyleManager } from '../ui/composition.js';
 import { flyToAustin } from '../camera.js';
@@ -18,11 +19,14 @@ export function createApplicationControls({
   placeSearch,
   defer,
   initialShareCode = null,
+  initialShareHash = null,
+  cleanAddressBar = false,
 }) {
   // Initialize the style manager (post-processing, HUD, locations, share links)
   const styleManager = new Controls(viewer, {
     services: {
       ...services,
+      ...(cleanAddressBar ? { shareLink: showShareViewDialog } : {}),
       ...operations.surface.controlServices,
       searchAndFlyTo: operations.searchAndFlyTo,
       fetchRegionalBrief: (...args) =>
@@ -34,6 +38,8 @@ export function createApplicationControls({
     placeSearch,
     // A share code to open at start-up instead of the page's address.
     initialShareCode,
+    initialShareHash,
+    cleanAddressBar,
   });
   defer(() => styleManager.orbitController.stop());
   defer(() => styleManager.hud.destroy());

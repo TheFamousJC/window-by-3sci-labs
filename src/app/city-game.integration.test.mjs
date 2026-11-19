@@ -131,7 +131,7 @@ test('Easy asks country only and four zoom levels cost exactly 10,8,6,4,2 withou
   assert.equal(f.controller.enableZoom, true);
   assert.equal(f.el('#reset-globe-view').disabled, false);
 });
-test('Medium banks country 2 and city 8, with no zoom or retry deduction', (t) => {
+test('Medium banks country 2 and applies zoom deductions without retry deductions', (t) => {
   const f = fixture(t);
   f.change('#window-difficulty', 'medium');
   f.click('[data-city-start]');
@@ -147,7 +147,7 @@ test('Medium banks country 2 and city 8, with no zoom or retry deduction', (t) =
   f.submit('Unknownville');
   assert.ok(f.el('[data-city-feedback]').textContent.includes('offline list'));
   f.submit(place.city);
-  assert.equal(f.el('[data-city-score]').textContent, '10 / 100');
+  assert.equal(f.el('[data-city-score]').textContent, '2 / 100');
 });
 test('Hard completes all ten daily country/city/landmark stages, saves and shares 100 points', async (t) => {
   const f = fixture(t);
@@ -285,4 +285,35 @@ test('skipping an answer also reveals the correct answer', (t) => {
       .el('[data-answer-review]')
       .textContent.includes('Skipped — Correct country: ' + place.country),
   );
+});
+
+test('Easy can zoom closer immediately, return and then use its four outward levels', (t) => {
+  const f = fixture(t);
+  f.click('[data-city-start]');
+  assert.equal(f.el('[data-zoom-in]').disabled, false);
+  f.click('[data-zoom-in]');
+  f.click('[data-zoom-in]');
+  assert.equal(f.el('[data-zoom-in]').disabled, true);
+  assert.ok(f.el('[data-answer-label]').textContent.includes('10 points'));
+  for (let i = 0; i < 2; i++) f.click('[data-zoom-out]');
+  assert.ok(f.el('[data-answer-label]').textContent.includes('10 points'));
+  f.click('[data-zoom-out]');
+  assert.ok(f.el('[data-answer-label]').textContent.includes('8 points'));
+});
+test('Medium offers 10,8,6,4,2 total points and never refunds zoom deductions', (t) => {
+  const f = fixture(t);
+  f.change('#window-difficulty', 'medium');
+  f.click('[data-city-start]');
+  const place = f.target('medium');
+  f.submit(place.country);
+  for (const cityPoints of [6, 4, 2, 0]) {
+    f.click('[data-zoom-out]');
+    assert.ok(
+      f.el('[data-answer-label]').textContent.includes(cityPoints + ' points'),
+    );
+  }
+  f.click('[data-zoom-in]');
+  assert.ok(f.el('[data-answer-label]').textContent.includes('0 points'));
+  f.submit(place.city);
+  assert.equal(f.el('[data-city-score]').textContent, '2 / 100');
 });

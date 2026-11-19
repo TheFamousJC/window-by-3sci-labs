@@ -15,6 +15,7 @@ let constructed = false;
 
 /** Compose the standalone application once per page. Reload to start again. */
 export function createStandaloneApplication({
+  initialShareHash = null,
   googleApiKey,
   cesiumToken,
   geospatial = {},
@@ -77,6 +78,8 @@ export function createStandaloneApplication({
     createControls: (context) =>
       createStandaloneControls({
         ...context,
+        initialShareHash,
+        cleanAddressBar: true,
         loaderStatus,
         placeSearch,
         catalog,

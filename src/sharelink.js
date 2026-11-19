@@ -30,7 +30,7 @@ import {
 /**
  * Share Links — URL Hash State Management
  *
- * The address bar follows the live view in the long hash form:
+ * Legacy incoming links may describe a view in the long hash form:
  * #lat=37.77&lon=-122.42&alt=800&heading=0&pitch=-35&style=nvg&bloom=1&bi=84&bv=2&sharpen=0&si=65&hud=tactical&hv=1&dm=BALANCED&dd=50&da=elastic&kf=16&ko=0&cr=0&map=photoreal
  *
  * A shared link is the short form, `<app>/share/<code>`, with the code from
@@ -68,9 +68,13 @@ export class ShareLinkManager {
       isNavigationCurrent,
       cancelOwnedNavigation,
       initialShareCode = null,
+      initialShareHash = null,
+      cleanAddressBar = false,
     } = {},
   ) {
     this.viewer = viewer;
+    this._initialShareHash = initialShareHash;
+    this._cleanAddressBar = cleanAddressBar;
     // A host may hand over the share code to open instead of the address.
     this._initialShareCode =
       typeof initialShareCode === 'string' ? initialShareCode : null;
@@ -155,9 +159,13 @@ export class ShareLinkManager {
       null;
     this._initialShareCode = null;
     const state =
-      code === null ? this._parseShareHash(hash) : this._parseShareCode(code);
+      code === null
+        ? this._parseShareHash(hash || this._initialShareHash || '')
+        : this._parseShareCode(code);
+    this._initialShareHash = null;
     if (!state) return null;
     this._beginIncomingRestore(state);
+    if (this._cleanAddressBar) this._updateHash();
     return state;
   }
 
@@ -317,6 +325,7 @@ export class ShareLinkManager {
     const state = this._parseShareHash(hash);
     if (!state) return;
     this._beginIncomingRestore(state);
+    if (this._cleanAddressBar) this._updateHash();
     onNavigate(state);
   }
 
@@ -622,12 +631,24 @@ export class ShareLinkManager {
   }
 
   _scheduleUpdate() {
+    if (this._cleanAddressBar) return;
     if (this._destroyed || this._initialRestorePending) return;
     clearTimeout(this._debounceTimer);
     this._debounceTimer = setTimeout(() => this._updateHash(), DEBOUNCE_MS);
   }
 
   _updateHash() {
+    if (this._cleanAddressBar) {
+      if (this._destroyed) return;
+      const url = parseSharePath(new URL(window.location.href).pathname)
+        ? appRootUrl(window.location.href)
+        : new URL(window.location.href);
+      url.hash = '';
+      this._knownHash = '';
+      if (url.href !== window.location.href)
+        history.replaceState(null, '', url.href);
+      return;
+    }
     if (this._destroyed || this._initialRestorePending) return;
     const params = this._buildHashParams();
     if (!params) return;

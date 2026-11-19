@@ -12,7 +12,7 @@ import {
   cityView,
 } from './gameRules.js';
 export { dealCities, cityView, DIFFICULTIES };
-const SCORE_KEY = 'window-city-game-score-v6-levels';
+const SCORE_KEY = 'window-city-game-score-v7-zoom';
 
 function readRecord(key) {
   try {
@@ -43,7 +43,7 @@ export function mountCityGame(content, viewer) {
       <p data-level-rules></p>
       <details><summary>How to play & scoring</summary>
         <p>Easy: country only. Zoom-out clicks reduce available points: 10 → 8 → 6 → 4 → 2. Zooming in does not recover points.</p>
-        <p>Medium: country 2 + city 8. Hard: country 2 + city 3 + landmark 5. No zoom penalties in Medium or Hard.</p>
+        <p>Medium: country 2 + city up to 8. Four zoom-out levels reduce city points: 8 → 6 → 4 → 2 → 0. Hard: country 2 + city 3 + landmark 5, with no zoom penalties.</p>
         <p>Use the zoom buttons to explore; mouse-wheel and pinch zoom are off during a round. Each hint costs 1 point from that answer. City and landmark answers have four attempts; retries do not change the level's point values. Unknown or repeated city names cost no attempt. Banked points stay protected. Streaks track progress without changing scores.</p>
       </details>
       <button data-city-start type="button">Start round</button>
@@ -122,7 +122,7 @@ export function mountCityGame(content, viewer) {
     return value === 'easy'
       ? 'Country only · 10 points; each new zoom-out level costs 2 (minimum 2).'
       : value === 'medium'
-        ? 'Country 2 + city 8 · Zoom freely without point penalties.'
+        ? 'Country 2 + city up to 8 · Each new zoom-out level costs 2 city points.'
         : 'Country 2 + city 3 + landmark 5 · Zoom freely without point penalties.';
   }
   function settingsChanged() {
@@ -170,18 +170,27 @@ export function mountCityGame(content, viewer) {
     document.body.classList.toggle('window-city-guessing', hidden);
   }
   function zoomLabel() {
-    zoomIn.disabled = phase !== 'answer' || zoomFlight || zoomLevel === 0;
+    zoomIn.disabled = phase !== 'answer' || zoomFlight || zoomLevel === -2;
     zoomOut.disabled = phase !== 'answer' || zoomFlight || zoomLevel === 4;
     el('[data-zoom-status]').textContent =
       roundDifficulty === 'easy'
-        ? 'Zoom level ' +
+        ? 'Zoom level (−2 closest, 4 widest) ' +
           zoomLevel +
           '/4 · Widest reached ' +
           widestZoom +
           '/4 · Country ' +
           answerPoints('easy', 'country', widestZoom) +
           ' points before hints'
-        : 'Zoom level ' + zoomLevel + '/4 · No zoom penalty';
+        : 'Zoom level (−2 closest, 4 widest) ' +
+          zoomLevel +
+          ' · ' +
+          (roundDifficulty === 'medium'
+            ? 'Widest reached ' +
+              widestZoom +
+              '/4 · City ' +
+              answerPoints('medium', 'city', widestZoom) +
+              ' points before hints'
+            : 'No zoom penalty');
   }
   function stageControls() {
     answer.value = '';
@@ -451,7 +460,7 @@ export function mountCityGame(content, viewer) {
   });
   function changeZoom(delta) {
     if (phase !== 'answer' || zoomFlight) return;
-    const level = Math.min(4, Math.max(0, zoomLevel + delta));
+    const level = Math.min(4, Math.max(-2, zoomLevel + delta));
     if (level === zoomLevel) return;
     zoomLevel = level;
     widestZoom = Math.max(widestZoom, level);

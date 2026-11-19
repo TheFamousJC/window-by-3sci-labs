@@ -21,10 +21,10 @@ export const helpInstructions = `
         `<tr><th scope="row">${rule.label}</th><td>${scoreSummary(key)}</td></tr>`,
     )
     .join('')}</tbody></table>
-  <p>Each round has ten locations and a maximum of <strong>${MAX_SCORE} points</strong>. Medium and Hard have no zoom penalties. Streaks track clean locations without multiplying scores.</p>
+  <p>Each round has ten locations and a maximum of <strong>${MAX_SCORE} points</strong>. Medium deducts two city points per new zoom-out level, so country + city totals are 10 → 8 → 6 → 4 → 2. Hard has no zoom penalties. Streaks track clean locations without multiplying scores.</p>
   <h3>Explore and zoom</h3>
   <p>Drag the map to look around. Use the game's <strong>Zoom in</strong> and <strong>Zoom out</strong> buttons. Mouse-wheel and pinch zoom, globe reset, and tilt shortcuts are disabled during a round to keep the scoring consistent.</p>
-  <p>On Easy, the widest zoom-out level reached sets the country value: <strong>${[0, 1, 2, 3, 4].map(easyCountryPoints).join(' → ')}</strong>. There are four zoom-out levels. Zooming back in never restores points; moving back to an already visited level does not charge again. Each new location resets the allowance.</p>
+  <p>On Easy, the widest zoom-out level reached sets the country value: <strong>${[0, 1, 2, 3, 4].map(easyCountryPoints).join(' → ')}</strong>. You can zoom two levels closer and four levels out from the starting view. Zooming back in never restores points; moving back to an already visited level does not charge again. Each new location resets the allowance.</p>
   <h3>Answer, bank points, and continue</h3>
   <ol><li>Enter the country and press <strong>Lock in country</strong>. Easy then finishes that location.</li><li>On Medium or Hard, identify the city next. Country points are banked and remain protected.</li><li>On Hard, identify the landmark last.</li><li>Press <strong>Next location</strong> after the result. Complete all ten to finish the round.</li></ol>
   <p>Country has one submission. A wrong or skipped country reveals the correct country immediately. City and landmark answers are revealed when their attempts run out or you skip them. Answer reviews stay visible until you choose the next location. City and landmark each allow four attempts. A wrong city guess from the built-in city list shows approximate distance and direction <strong>from your guessed city toward the target</strong>, plus a hot/warm/cool/cold clue. Retry attempts do not lower the level's point values. Unknown or repeated city guesses cost no attempt. Common aliases, accents, capitalization, and punctuation are handled where supported.</p>
@@ -48,8 +48,8 @@ export const helpFaq = [
     'Easy remembers the widest zoom-out level you reached for that location. Zooming in does not refund points. The next location starts at 10 again, before hints.',
   ],
   [
-    'Can I zoom without penalties on Medium and Hard?',
-    'Yes. The same four zoom levels are available, but they never deduct points on Medium or Hard. Optional hints still cost one point from their answer.',
+    'How does zoom scoring work on Medium and Hard?',
+    'Medium keeps country at 2 and reduces city from 8 to 6, 4, 2, then 0 as you reach new zoom-out levels. Zooming back in does not restore points. Hard has no zoom penalties. Optional hints cost one point from their answer.',
   ],
   [
     'Why does the mouse wheel not zoom the map?',
@@ -146,7 +146,7 @@ export const helpWizard = {
   },
   medium: {
     title: 'Medium: country 2 + city 8',
-    text: 'Lock in country first, then city. Zoom buttons have no score penalty. Banked country points are protected. Hints cost one point from their answer.',
+    text: 'Lock in country first, then city. Each new zoom-out level costs 2 city points (8 → 6 → 4 → 2 → 0). Zooming in does not refund points. Banked country points are protected. Hints cost one point from their answer.',
     action: 'game',
   },
   hard: {

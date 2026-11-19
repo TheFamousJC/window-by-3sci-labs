@@ -10,19 +10,20 @@ const renderDefaultView =
   '&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.1_v.c.1_i.c.0_t.c.1_r.c.1_s.c.1_g.c.1_p.c.1_m.c.0';
 
 // Use the normal share-link restore path. A visitor's explicit view takes precedence.
+let initialShareHash = null;
 if (
   (window.location.hostname === renderHostname ||
     ['localhost', '127.0.0.1'].includes(window.location.hostname)) &&
-  !window.location.hash
+  !window.location.hash &&
+  !window.location.pathname.startsWith('/share/')
 ) {
-  const url = new URL(window.location.href);
   document.documentElement.dataset.windowSunlightDefault = 'true';
   document.documentElement.dataset.windowGameHome = 'true';
-  url.hash = renderDefaultView;
-  window.history.replaceState(window.history.state, '', url);
+  initialShareHash = renderDefaultView.slice(1);
 }
 
 const application = createStandaloneApplication({
+  initialShareHash,
   googleApiKey: import.meta.env.GOOGLE_MAPS_API_KEY,
   cesiumToken: import.meta.env.CESIUM_ION_TOKEN,
   allowQaRegistration: import.meta.env.DEV,

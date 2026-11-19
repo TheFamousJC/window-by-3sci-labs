@@ -84,6 +84,8 @@ export class StyleManager extends ShellFacade {
       services,
       requestServices,
       initialShareCode = null,
+      initialShareHash = null,
+      cleanAddressBar = false,
     } = {},
   ) {
     super();
@@ -445,6 +447,8 @@ export class StyleManager extends ShellFacade {
       cancelOwnedNavigation: () => this.viewer.camera.cancelFlight(),
       // A host may open a share code without a `/share/<code>` address.
       initialShareCode,
+      initialShareHash,
+      cleanAddressBar,
     });
     this.shareLinkManager.setFollowSubjectProvider(({ nowMs }) =>
       readShareFollowSubject({ viewer: this.viewer, nowMs }),
