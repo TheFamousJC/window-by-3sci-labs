@@ -11,15 +11,30 @@ export function createOsmImagery() {
   });
 }
 
-export function createEsriImagery() {
-  return Cesium.ArcGisMapServerImageryProvider.fromUrl(
-    'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-    {
-      credit:
-        'Powered by Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-      enablePickFeatures: false,
-    },
-  );
+export function createEsriTileImagery() {
+  return new Cesium.UrlTemplateImageryProvider({
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    maximumLevel: 19,
+    credit:
+      'Powered by Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    enablePickFeatures: false,
+  });
+}
+
+export async function createEsriImagery() {
+  try {
+    return await Cesium.ArcGisMapServerImageryProvider.fromUrl(
+      'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+      {
+        credit:
+          'Powered by Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+        enablePickFeatures: false,
+      },
+    );
+  } catch {
+    // Metadata outages must not replace satellite imagery with a street map.
+    return createEsriTileImagery();
+  }
 }
 
 export function createIonImagery(style, accessToken) {

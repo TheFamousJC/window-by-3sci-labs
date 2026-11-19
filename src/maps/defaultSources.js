@@ -60,15 +60,6 @@ export function createDefaultMapSources({
         ...(descriptor.id === 'esri-imagery'
           ? {
               credit: ESRI_ATTRIBUTION_HTML,
-              constructionFallback: {
-                id: 'osm',
-                message: 'Esri Satellite is unavailable; using OSM',
-              },
-              tileFailureFallback: {
-                id: 'osm',
-                threshold: 2,
-                message: 'Esri Satellite tile requests failed; using OSM',
-              },
             }
           : {}),
       };

@@ -70,9 +70,26 @@ const settle = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 const descriptor = (id) => ({ id, label: id, kind: 'imagery' });
-function publicFixture(options) {
+function publicFixture(options = {}) {
+  const { streetFallback = true, ...controllerOptions } = options;
   const tileset = { show: true };
   const registry = createDefaultMapSources({ googleTileset: tileset });
+  // Explicit synthetic fallback policy exercises the generic controller's
+  // recovery machinery; the production satellite registry no longer uses it.
+  if (streetFallback) {
+    const satellite = registry.sources.find(
+      (source) => source.descriptor.id === 'esri-imagery',
+    );
+    satellite.constructionFallback = {
+      id: 'osm',
+      message: 'Esri Satellite is unavailable; using OSM',
+    };
+    satellite.tileFailureFallback = {
+      id: 'osm',
+      threshold: 2,
+      message: 'Esri Satellite tile requests failed; using OSM',
+    };
+  }
   const providers = new Map();
   for (const source of registry.sources) {
     if (!source.imagery) continue;
@@ -84,7 +101,12 @@ function publicFixture(options) {
       create: async () => ({ provider: { id: 'terrain' } }),
     };
   }
-  return { ...fixture(registry, options), registry, providers, tileset };
+  return {
+    ...fixture(registry, controllerOptions),
+    registry,
+    providers,
+    tileset,
+  };
 }
 
 test('an additional imagery source needs no controller branch and owns its cached resources', async () => {
@@ -253,45 +275,26 @@ test('slow terrain cannot overwrite a newer source and a 3D view never starts un
   env.controller.destroy();
 });
 
-test('Esri construction fallback reports and attributes the source actually rendered', async () => {
-  const env = publicFixture();
-  env.registry.sources.find(
+test('keyless default remains satellite and has no street-map fallback', () => {
+  const registry = createDefaultMapSources();
+  assert.equal(registry.defaultId, 'esri-imagery');
+  const satellite = registry.sources.find(
     (source) => source.descriptor.id === 'esri-imagery',
-  ).imagery = async () => {
-    throw new Error('unreachable');
-  };
-  await env.controller.setStack('esri-imagery');
-  assert.equal(env.controller.getActiveId(), 'osm');
-  assert.equal(
-    env.controller.getState().lastError,
-    'Esri Satellite is unavailable; using OSM',
   );
-  assert.equal(env.imagery[0].provider, env.providers.get('osm'));
-  assert.equal(env.credits.size, 0);
-  env.controller.destroy();
+  assert.equal(satellite.constructionFallback, undefined);
+  assert.equal(satellite.tileFailureFallback, undefined);
 });
 
-test('one Esri tile failure stays put, two fall back, and stale errors cannot replace a selection', async () => {
-  const env = publicFixture();
+test('repeated satellite tile failures do not silently select a street map', async () => {
+  const env = publicFixture({ streetFallback: false });
   await env.controller.setStack('esri-imagery');
-  assert.equal(env.credits.size, 1);
   const errorEvent = env.providers.get('esri-imagery').errorEvent;
-  errorEvent.raise();
+  for (let i = 0; i < 10; i++) errorEvent.raise();
   await settle();
   assert.equal(env.controller.getActiveId(), 'esri-imagery');
-  errorEvent.raise();
-  await settle();
+  assert.equal(env.credits.size, 1);
+  await env.controller.setStack('osm');
   assert.equal(env.controller.getActiveId(), 'osm');
-  assert.equal(env.credits.size, 0);
-  assert.equal(
-    env.controller.getState().lastError,
-    'Esri Satellite tile requests failed; using OSM',
-  );
-  assert.equal(errorEvent.size, 0);
-  await env.controller.setStack('photoreal');
-  errorEvent.raise({ timesRetried: 9 });
-  await settle();
-  assert.equal(env.controller.getActiveId(), 'photoreal');
   env.controller.destroy();
 });
 
